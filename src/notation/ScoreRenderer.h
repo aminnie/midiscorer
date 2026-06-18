@@ -151,6 +151,48 @@ private:
         return 12.0f;
     }
 
+    static void drawRestSymbol(juce::Graphics& g, float x, float centerY, NoteValue value)
+    {
+        switch (value)
+        {
+            case NoteValue::whole:
+                g.fillRect(juce::Rectangle<float>(x - 6.0f, centerY - 7.0f, 12.0f, 3.0f));
+                break;
+            case NoteValue::half:
+                g.fillRect(juce::Rectangle<float>(x - 6.0f, centerY - 2.0f, 12.0f, 3.0f));
+                break;
+            case NoteValue::quarter:
+            {
+                juce::Path p;
+                p.startNewSubPath(x - 2.0f, centerY - 10.0f);
+                p.lineTo(x + 3.0f, centerY - 2.0f);
+                p.lineTo(x - 1.0f, centerY + 4.0f);
+                p.lineTo(x + 3.0f, centerY + 10.0f);
+                g.strokePath(p, juce::PathStrokeType(1.6f));
+                break;
+            }
+            case NoteValue::eighth:
+            {
+                juce::Path stem;
+                stem.startNewSubPath(x, centerY - 8.0f);
+                stem.lineTo(x, centerY + 8.0f);
+                stem.addArc(x - 1.0f, centerY + 2.0f, 8.0f, 7.0f, 3.3f, 5.6f, true);
+                g.strokePath(stem, juce::PathStrokeType(1.4f));
+                break;
+            }
+            case NoteValue::sixteenth:
+            {
+                juce::Path stem;
+                stem.startNewSubPath(x, centerY - 8.0f);
+                stem.lineTo(x, centerY + 8.0f);
+                stem.addArc(x - 1.0f, centerY + 1.0f, 8.0f, 6.0f, 3.3f, 5.6f, true);
+                stem.addArc(x - 1.0f, centerY + 6.0f, 8.0f, 6.0f, 3.3f, 5.6f, true);
+                g.strokePath(stem, juce::PathStrokeType(1.4f));
+                break;
+            }
+        }
+    }
+
     void drawBar(juce::Graphics& g, const ScoreBar& bar, const juce::Rectangle<int>& barRect, bool isCurrent) const
     {
         const bool isDark = colorScheme == ColorScheme::dark;
@@ -168,8 +210,6 @@ private:
         const auto noteColour = isDark ? juce::Colours::white : juce::Colours::black;
         const auto beatGuideColour = isDark ? juce::Colours::white.withAlpha(0.10f)
                                             : juce::Colours::black.withAlpha(0.08f);
-        const auto restColour = isDark ? juce::Colours::white.withAlpha(0.55f)
-                                       : juce::Colours::black.withAlpha(0.45f);
         const auto tieColour = isDark ? juce::Colours::lightblue.withAlpha(0.9f)
                                       : juce::Colour(0xff1f4e8a).withAlpha(0.75f);
 
@@ -234,16 +274,22 @@ private:
             g.drawLine(beatX, static_cast<float>(staffRect.getY()), beatX, static_cast<float>(staffRect.getBottom()), 1.0f);
         }
 
-        std::vector<float> onsetQuarterInBar;
-
         for (const auto& note : bar.notes)
         {
             const double beatPos = juce::jmax(0.0, note.quarterInBar);
             const float x = left + static_cast<float>((beatPos / juce::jmax(0.25, qPerBar)) * width);
+            const float restCenterY = static_cast<float>(staffRect.getCentreY());
+
+            if (note.isRest)
+            {
+                g.setColour(noteColour);
+                drawRestSymbol(g, x + 4.0f, restCenterY, note.value);
+                continue;
+            }
+
             const float y = staffYForMidi(note.midiNote, staffRect, clefType);
             const float w = durationWidth(note.value);
             const float h = 7.0f;
-            onsetQuarterInBar.push_back(static_cast<float>(note.quarterInBar));
 
             g.setColour(noteColour);
             drawLedgerLines(g, staffRect, x + w * 0.5f, y);
@@ -283,6 +329,8 @@ private:
         {
             const auto& leftNote = bar.notes[i - 1];
             const auto& rightNote = bar.notes[i];
+            if (leftNote.isRest || rightNote.isRest)
+                continue;
             const bool beamedLeft = leftNote.value == NoteValue::eighth || leftNote.value == NoteValue::sixteenth;
             const bool beamedRight = rightNote.value == NoteValue::eighth || rightNote.value == NoteValue::sixteenth;
             if (!beamedLeft || !beamedRight)
@@ -300,28 +348,6 @@ private:
 
             g.setColour(noteColour);
             g.drawLine(xA, yA, xB, yB, 2.0f);
-        }
-
-        for (int beat = 0; beat < beatCount; ++beat)
-        {
-            const double beatQuarter = static_cast<double>(beat);
-            bool hasOnset = false;
-            for (float onset : onsetQuarterInBar)
-            {
-                if (std::abs(static_cast<double>(onset) - beatQuarter) < 0.08)
-                {
-                    hasOnset = true;
-                    break;
-                }
-            }
-
-            if (hasOnset)
-                continue;
-
-            const float x = left + (static_cast<float>(beatQuarter) / static_cast<float>(juce::jmax(0.25, qPerBar))) * width + 3.0f;
-            const float y = static_cast<float>(staffRect.getCentreY());
-            g.setColour(restColour);
-            g.drawRect(juce::Rectangle<float>(x, y - 3.0f, 6.0f, 6.0f), 1.0f);
         }
     }
 

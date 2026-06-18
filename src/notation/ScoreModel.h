@@ -18,8 +18,10 @@ struct ScoreNoteSymbol
     int barNumber = 1;
     double quarter = 0.0;
     double quarterInBar = 0.0;
+    double durationQuarter = 1.0;
     int midiNote = 60;
     NoteValue value = NoteValue::quarter;
+    bool isRest = false;
     bool tieIntoNextBar = false;
 };
 
@@ -74,6 +76,7 @@ public:
             symbol.barNumber = bar;
             symbol.quarter = n.startQuarter;
             symbol.quarterInBar = juce::jmax(0.0, n.startQuarter - map.barToQuarterDownbeat(bar));
+            symbol.durationQuarter = n.durationQuarter;
             symbol.midiNote = n.midiNote;
             symbol.value = n.value;
 
@@ -94,7 +97,9 @@ public:
 
         for (auto& bar : bars)
         {
-            std::sort(bar.notes.begin(), bar.notes.end(), [](const auto& a, const auto& b) { return a.quarter < b.quarter; });
+            std::sort(bar.notes.begin(), bar.notes.end(), [](const auto& a, const auto& b) { return a.quarterInBar < b.quarterInBar; });
+            insertRestsIntoBar(bar);
+            std::sort(bar.notes.begin(), bar.notes.end(), [](const auto& a, const auto& b) { return a.quarterInBar < b.quarterInBar; });
             std::sort(bar.chords.begin(), bar.chords.end(), [](const auto& a, const auto& b) { return a.quarter < b.quarter; });
         }
     }
@@ -124,6 +129,120 @@ public:
     bool empty() const { return bars.empty(); }
 
 private:
+    static double noteValueToQuarter(NoteValue value)
+    {
+        switch (value)
+        {
+            case NoteValue::sixteenth: return 0.25;
+            case NoteValue::eighth: return 0.5;
+            case NoteValue::quarter: return 1.0;
+            case NoteValue::half: return 2.0;
+            case NoteValue::whole: return 4.0;
+        }
+        return 1.0;
+    }
+
+    static NoteValue quarterToNoteValue(double durationQuarter)
+    {
+        if (durationQuarter <= 0.25 + 1.0e-6)
+            return NoteValue::sixteenth;
+        if (durationQuarter <= 0.5 + 1.0e-6)
+            return NoteValue::eighth;
+        if (durationQuarter <= 1.0 + 1.0e-6)
+            return NoteValue::quarter;
+        if (durationQuarter <= 2.0 + 1.0e-6)
+            return NoteValue::half;
+        return NoteValue::whole;
+    }
+
+    static void addRestGap(ScoreBar& bar, double gapStartQuarterInBar, double gapDurationQuarter)
+    {
+        if (gapDurationQuarter <= 1.0e-6)
+            return;
+
+        static constexpr double durations[] { 4.0, 2.0, 1.0, 0.5, 0.25 };
+        double cursor = gapStartQuarterInBar;
+        double remaining = gapDurationQuarter;
+
+        while (remaining > 1.0e-6)
+        {
+            double chosen = 0.25;
+            for (double d : durations)
+            {
+                if (d <= remaining + 1.0e-6)
+                {
+                    chosen = d;
+                    break;
+                }
+            }
+
+            ScoreNoteSymbol rest;
+            rest.barNumber = bar.barNumber;
+            rest.quarterInBar = cursor;
+            rest.quarter = cursor;
+            rest.durationQuarter = chosen;
+            rest.value = quarterToNoteValue(chosen);
+            rest.isRest = true;
+            rest.tieIntoNextBar = false;
+            bar.notes.push_back(rest);
+
+            cursor += chosen;
+            remaining -= chosen;
+        }
+    }
+
+    static void insertRestsIntoBar(ScoreBar& bar)
+    {
+        const double barDurationQuarter = static_cast<double>(bar.numerator) * 4.0 / static_cast<double>(bar.denominator);
+        if (barDurationQuarter <= 1.0e-6)
+            return;
+
+        std::vector<std::pair<double, double>> occupied;
+        occupied.reserve(bar.notes.size());
+
+        for (const auto& symbol : bar.notes)
+        {
+            if (symbol.isRest)
+                continue;
+
+            const double start = juce::jlimit(0.0, barDurationQuarter, symbol.quarterInBar);
+            const double end = juce::jlimit(0.0, barDurationQuarter, start + juce::jmax(0.0, symbol.durationQuarter));
+            if (end > start + 1.0e-6)
+                occupied.push_back({ start, end });
+        }
+
+        if (occupied.empty())
+        {
+            addRestGap(bar, 0.0, barDurationQuarter);
+            return;
+        }
+
+        std::sort(occupied.begin(), occupied.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+
+        std::vector<std::pair<double, double>> merged;
+        for (const auto& span : occupied)
+        {
+            if (merged.empty() || span.first > merged.back().second + 1.0e-6)
+            {
+                merged.push_back(span);
+                continue;
+            }
+
+            merged.back().second = juce::jmax(merged.back().second, span.second);
+        }
+
+        double cursor = 0.0;
+        for (const auto& span : merged)
+        {
+            if (span.first > cursor + 1.0e-6)
+                addRestGap(bar, cursor, span.first - cursor);
+            cursor = juce::jmax(cursor, span.second);
+        }
+
+        if (cursor < barDurationQuarter - 1.0e-6)
+            addRestGap(bar, cursor, barDurationQuarter - cursor);
+    }
+
     std::pair<int, int> signatureForBar(const TempoMap& map, int barNumber) const
     {
         const auto q = map.barToQuarterDownbeat(barNumber);
