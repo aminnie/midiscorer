@@ -76,6 +76,7 @@ public:
 
         addAndMakeVisible(scoreColorToggle);
         scoreColorToggle.setButtonText("Light Score");
+        scoreColorToggle.setToggleState(true, juce::dontSendNotification);
         scoreColorToggle.onClick = [this] { applyScoreColorScheme(); };
         scoreColorToggle.setTooltip("Toggle score display between white-on-black and black-on-white.");
 
@@ -114,7 +115,7 @@ public:
 
         addAndMakeVisible(loadPresetButton);
         loadPresetButton.setButtonText("Load Preset");
-        loadPresetButton.onClick = [this] { loadUiPreset(); };
+        loadPresetButton.onClick = [this] { (void) loadUiPreset(); };
 
         addAndMakeVisible(statusLabel);
         statusLabel.setJustificationType(juce::Justification::centredLeft);
@@ -408,13 +409,14 @@ private:
             setStatusMessage("Failed to save preset.");
     }
 
-    void loadUiPreset()
+    bool loadUiPreset(bool silent = false)
     {
         const auto file = getPresetFilePath();
         if (!file.existsAsFile())
         {
-            setStatusMessage("Preset file not found.");
-            return;
+            if (!silent)
+                setStatusMessage("Preset file not found.");
+            return false;
         }
 
         const auto jsonText = file.loadFileAsString();
@@ -422,13 +424,14 @@ private:
         const auto parseResult = juce::JSON::parse(jsonText, parsed);
         if (parseResult.failed() || !parsed.isObject())
         {
-            setStatusMessage("Preset parse failed.");
-            return;
+            if (!silent)
+                setStatusMessage("Preset parse failed.");
+            return false;
         }
 
         auto* obj = parsed.getDynamicObject();
         if (obj == nullptr)
-            return;
+            return false;
 
         auto getIntProperty = [obj](const juce::Identifier& key, int fallback) -> int
         {
@@ -462,7 +465,9 @@ private:
         applyScoreColorScheme();
 
         rebuildAllStaffs();
-        setStatusMessage("Preset loaded.");
+        if (!silent)
+            setStatusMessage("Preset loaded.");
+        return true;
     }
 
     std::vector<MidiNoteEvent> collectChordAnalysisNotes(int selectedTrackIndex)
@@ -591,8 +596,12 @@ private:
             keyLabel.setText("Key: " + project.getKeyDisplayText(), juce::dontSendNotification);
             midiMetaLabel.setText(buildMidiMetaText(), juce::dontSendNotification);
             assignDefaultStaffSelections();
-            setStatusMessage("Loaded: " + project.file.getFileName());
-            rebuildAllStaffs();
+            const bool autoPresetLoaded = loadUiPreset(true);
+            if (!autoPresetLoaded)
+                rebuildAllStaffs();
+            setStatusMessage(autoPresetLoaded
+                ? ("Loaded: " + project.file.getFileName() + " (auto preset applied)")
+                : ("Loaded: " + project.file.getFileName()));
         });
     }
 
@@ -749,6 +758,12 @@ private:
 
     void stopPlayback(bool userInitiated)
     {
+        if (userInitiated && !project.tracks.empty())
+        {
+            const int currentBar = juce::jmax(1, playbackController.getCurrentBar());
+            continueBarInput.setText(juce::String(currentBar), juce::dontSendNotification);
+        }
+
         playbackController.stop();
         continueArmed = userInitiated && !project.tracks.empty();
         updateTransportControls();
