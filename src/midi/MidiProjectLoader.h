@@ -67,7 +67,14 @@ public:
             return false;
         }
 
-        const double ppq = parsed.getTimeFormat() > 0 ? static_cast<double>(parsed.getTimeFormat()) : 960.0;
+        const int timeFormat = parsed.getTimeFormat();
+        if (timeFormat <= 0)
+        {
+            error = "Unsupported MIDI time format (SMPTE/non-PPQ). Please use a PPQ-timed MIDI file.";
+            return false;
+        }
+
+        const double ppq = static_cast<double>(timeFormat);
 
         std::vector<TempoMetaEvent> tempos;
         std::vector<TimeSignatureMetaEvent> signatures;
@@ -138,7 +145,13 @@ public:
             outData.tracks.push_back(std::move(track));
         }
 
-        return !outData.tracks.empty();
+        if (outData.tracks.empty())
+        {
+            error = "No readable MIDI tracks found in file.";
+            return false;
+        }
+
+        return true;
     }
 
 private:

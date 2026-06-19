@@ -67,23 +67,41 @@ public:
 
         for (const auto& n : quantizedNotes)
         {
-            const int bar = map.quarterToBar(n.startQuarter);
-            const int idx = barToIndex(bar);
-            if (!isValidIndex(idx))
+            const double noteStartQuarter = juce::jmax(0.0, n.startQuarter);
+            const double noteEndQuarter = juce::jmax(noteStartQuarter, n.startQuarter + n.durationQuarter);
+            if (noteEndQuarter <= noteStartQuarter + 1.0e-6)
                 continue;
 
-            ScoreNoteSymbol symbol;
-            symbol.barNumber = bar;
-            symbol.quarter = n.startQuarter;
-            symbol.quarterInBar = juce::jmax(0.0, n.startQuarter - map.barToQuarterDownbeat(bar));
-            symbol.durationQuarter = n.durationQuarter;
-            symbol.midiNote = n.midiNote;
-            symbol.value = n.value;
+            double segmentStartQuarter = noteStartQuarter;
+            while (segmentStartQuarter < noteEndQuarter - 1.0e-6)
+            {
+                const int bar = map.quarterToBar(segmentStartQuarter);
+                const int idx = barToIndex(bar);
+                if (!isValidIndex(idx))
+                    break;
 
-            const auto endQuarter = n.startQuarter + n.durationQuarter;
-            const int endBar = map.quarterToBar(endQuarter - 1.0e-6);
-            symbol.tieIntoNextBar = endBar > bar;
-            bars[(size_t) idx].notes.push_back(symbol);
+                const double barDownbeatQuarter = map.barToQuarterDownbeat(bar);
+                const double nextBarDownbeatQuarter = map.barToQuarterDownbeat(bar + 1);
+                if (nextBarDownbeatQuarter <= segmentStartQuarter + 1.0e-6)
+                    break;
+
+                const double segmentEndQuarter = juce::jmin(noteEndQuarter, nextBarDownbeatQuarter);
+                const double segmentDurationQuarter = juce::jmax(0.0, segmentEndQuarter - segmentStartQuarter);
+                if (segmentDurationQuarter <= 1.0e-6)
+                    break;
+
+                ScoreNoteSymbol symbol;
+                symbol.barNumber = bar;
+                symbol.quarter = segmentStartQuarter;
+                symbol.quarterInBar = juce::jmax(0.0, segmentStartQuarter - barDownbeatQuarter);
+                symbol.durationQuarter = segmentDurationQuarter;
+                symbol.midiNote = n.midiNote;
+                symbol.value = quarterToNoteValue(segmentDurationQuarter);
+                symbol.tieIntoNextBar = segmentEndQuarter < noteEndQuarter - 1.0e-6;
+                bars[(size_t) idx].notes.push_back(symbol);
+
+                segmentStartQuarter = segmentEndQuarter;
+            }
         }
 
         for (const auto& chord : chordEvents)
@@ -92,7 +110,10 @@ public:
             if (!isValidIndex(idx))
                 continue;
 
-            bars[(size_t) idx].chords.push_back(chord);
+            ChordAnnotation normalized = chord;
+            const double barDownbeatQuarter = map.barToQuarterDownbeat(chord.barNumber);
+            normalized.quarter = juce::jmax(0.0, chord.quarter - barDownbeatQuarter);
+            bars[(size_t) idx].chords.push_back(normalized);
         }
 
         for (auto& bar : bars)

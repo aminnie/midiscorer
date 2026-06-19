@@ -26,6 +26,7 @@ public:
     {
         std::vector<MidiNoteEvent> notes;
         std::multimap<std::pair<int, int>, MidiNoteEvent> active;
+        double lastTick = 0.0;
 
         for (int i = 0; i < sequence.getNumEvents(); ++i)
         {
@@ -34,10 +35,11 @@ public:
                 continue;
 
             const auto& msg = holder->message;
+            const auto tick = msg.getTimeStamp();
+            lastTick = juce::jmax(lastTick, tick);
             if (msg.isMetaEvent())
                 continue;
 
-            const auto tick = msg.getTimeStamp();
             if (msg.isNoteOn())
             {
                 MidiNoteEvent ev;
@@ -61,9 +63,19 @@ public:
 
                 ev.endTick = tick;
                 ev.endSec = tempoMap.tickToSeconds(tick);
-                if (ev.endTick > ev.startTick)
+                if (ev.endTick >= ev.startTick)
                     notes.push_back(ev);
             }
+        }
+
+        // Flush orphaned note-ons at track end to avoid silently dropping sustained tails.
+        for (auto& [key, ev] : active)
+        {
+            juce::ignoreUnused(key);
+            ev.endTick = juce::jmax(ev.startTick, lastTick);
+            ev.endSec = tempoMap.tickToSeconds(ev.endTick);
+            if (ev.endTick >= ev.startTick)
+                notes.push_back(ev);
         }
 
         std::sort(notes.begin(), notes.end(), [](const auto& a, const auto& b) { return a.startTick < b.startTick; });

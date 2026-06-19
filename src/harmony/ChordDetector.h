@@ -43,6 +43,7 @@ public:
 
         for (int bar = 1; bar <= barCount; ++bar)
         {
+            previousSymbol.clear();
             const auto barQ = map.barToQuarterDownbeat(bar);
             const auto nextBarQ = map.barToQuarterDownbeat(bar + 1);
             for (double q = barQ; q < nextBarQ - 1.0e-6; q += 1.0)
@@ -51,7 +52,10 @@ public:
                 const auto secB = map.tickToSeconds(map.quarterToTick(q + 1.0));
                 const auto symbol = detectWindow(notes, secA, secB, options);
                 if (symbol.isEmpty())
+                {
+                    previousSymbol.clear();
                     continue;
+                }
 
                 if (symbol != previousSymbol)
                 {

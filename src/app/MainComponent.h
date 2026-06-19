@@ -556,13 +556,26 @@ private:
 
                 const auto& notes = liveChordNotesByStaff[(size_t) staffIndex];
                 const auto chord = ChordDetector::detectInWindow(notes, windowSecStart, windowSecEnd, namingOptions);
-                if (chord.isEmpty() || chord == state.lastDisplayedChord)
+                if (chord.isEmpty())
+                {
+                    if (state.hasMarker)
+                        renderer.setLiveChordMarker(false, state.markerBar, state.markerQuarterInBar, {});
+                    state.lastDisplayedChord.clear();
+                    state.hasMarker = false;
+                    return;
+                }
+
+                const int markerBar = project.tempoMap.quarterToBar(windowQuarterStart);
+                const double markerQuarterInBar = juce::jmax(0.0, windowQuarterStart - project.tempoMap.barToQuarterDownbeat(markerBar));
+                const bool movedMarker = markerBar != state.markerBar
+                    || std::abs(markerQuarterInBar - state.markerQuarterInBar) > 1.0e-6;
+                if (chord == state.lastDisplayedChord && state.hasMarker && !movedMarker)
                     return;
 
                 state.lastDisplayedChord = chord;
                 state.hasMarker = true;
-                state.markerBar = project.tempoMap.quarterToBar(windowQuarterStart);
-                state.markerQuarterInBar = juce::jmax(0.0, windowQuarterStart - project.tempoMap.barToQuarterDownbeat(state.markerBar));
+                state.markerBar = markerBar;
+                state.markerQuarterInBar = markerQuarterInBar;
                 renderer.setLiveChordMarker(true, state.markerBar, state.markerQuarterInBar, chord);
             };
 

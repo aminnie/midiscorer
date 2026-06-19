@@ -29,7 +29,10 @@ public:
 
     void setCurrentBar(int bar)
     {
-        currentBar = juce::jmax(1, bar);
+        if (model != nullptr && !model->empty())
+            currentBar = juce::jlimit(model->getFirstBar(), model->getLastBar(), bar);
+        else
+            currentBar = juce::jmax(1, bar);
         repaint();
     }
 
@@ -86,9 +89,17 @@ public:
             return;
         }
 
-        const auto bars = model->getWindowBars(currentBar, 2, 2);
+        const int clampedCenterBar = juce::jlimit(model->getFirstBar(), model->getLastBar(), currentBar);
+        auto bars = model->getWindowBars(clampedCenterBar, 2, 2);
         if (bars.empty())
+            bars = model->getWindowBars(model->getLastBar(), 2, 2);
+        if (bars.empty())
+        {
+            g.setColour(emptyText);
+            g.drawFittedText("No visible bars in current score window.",
+                             getLocalBounds().reduced(16), juce::Justification::centred, 2);
             return;
+        }
 
         auto bounds = getLocalBounds().reduced(12);
         const int barW = bounds.getWidth() / static_cast<int>(bars.size());
@@ -98,7 +109,7 @@ public:
         {
             const auto& bar = bars[i];
             juce::Rectangle<int> barRect(x, bounds.getY(), barW, bounds.getHeight());
-            drawBar(g, bar, barRect, bar.barNumber == currentBar, i == 0);
+            drawBar(g, bar, barRect, bar.barNumber == clampedCenterBar, i == 0);
             x += barW;
         }
     }
@@ -391,13 +402,6 @@ private:
                         : (clefType == ClefType::drum ? "Drum" : "Treble");
         g.drawText(headerLabel, clefTextArea, juce::Justification::centredRight);
 
-        const auto chordText = bar.chords.empty() ? "-" : bar.chords.front().symbol;
-        g.setColour(chordColour);
-        g.setFont(14.0f);
-        g.drawText(chordText,
-                   juce::Rectangle<int>(staffRect.getX() + 6, chordTop, staffRect.getWidth() - 12, 20),
-                   juce::Justification::centredLeft);
-
         g.setColour(staffLineColour);
         const int lineSpacing = 11;
         for (int i = 0; i < 5; ++i)
@@ -416,6 +420,29 @@ private:
         const float left = static_cast<float>(staffRect.getX() + 6 + startSymbolWidth);
         const float width = static_cast<float>(juce::jmax(20, staffRect.getWidth() - 12 - startSymbolWidth));
         const int beatCount = juce::jmax(1, bar.numerator);
+
+        g.setColour(chordColour);
+        g.setFont(14.0f);
+        if (bar.chords.empty())
+        {
+            g.drawText("-",
+                       juce::Rectangle<int>(staffRect.getX() + 6, chordTop, staffRect.getWidth() - 12, 20),
+                       juce::Justification::centredLeft);
+        }
+        else
+        {
+            constexpr int chordLabelWidth = 86;
+            for (const auto& chord : bar.chords)
+            {
+                const double clampedQuarter = juce::jlimit(0.0, juce::jmax(0.0, qPerBar), chord.quarter);
+                const float chordX = left + static_cast<float>((clampedQuarter / juce::jmax(0.25, qPerBar)) * width);
+                const int textX = juce::jlimit(staffRect.getX(), staffRect.getRight() - chordLabelWidth,
+                                               static_cast<int>(chordX) - chordLabelWidth / 2);
+                g.drawText(chord.symbol,
+                           juce::Rectangle<int>(textX, chordTop, chordLabelWidth, 20),
+                           juce::Justification::centred);
+            }
+        }
 
         if (liveChordVisible && bar.barNumber == liveChordBarNumber && liveChordText.isNotEmpty())
         {

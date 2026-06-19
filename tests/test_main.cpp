@@ -1,7 +1,9 @@
 #include <JuceHeader.h>
+#include "../src/midi/MidiProjectLoader.h"
 #include "../src/midi/TempoMap.h"
 #include "../src/midi/TrackNoteExtractor.h"
 #include "../src/notation/Quantizer.h"
+#include "../src/notation/ScoreModel.h"
 #include "../src/harmony/ChordDetector.h"
 
 namespace
@@ -80,6 +82,166 @@ void testChordDetector()
     if (!flatChords.empty())
         expectTrue(flatChords.front().symbol.contains("C"), "Chord naming options keep root identity");
 }
+
+void testMidiLoaderRejectsSmpte()
+{
+    juce::TemporaryFile tempFile("smpte.mid");
+    const auto file = tempFile.getFile();
+    static const uint8_t smpteMidiData[] =
+    {
+        0x4d, 0x54, 0x68, 0x64,  // MThd
+        0x00, 0x00, 0x00, 0x06,  // header size
+        0x00, 0x00,              // format 0
+        0x00, 0x01,              // one track
+        0xe7, 0x28,              // SMPTE division: -25 fps, 40 ticks/frame
+        0x4d, 0x54, 0x72, 0x6b,  // MTrk
+        0x00, 0x00, 0x00, 0x04,  // track size
+        0x00, 0xff, 0x2f, 0x00   // end-of-track
+    };
+
+    expectTrue(file.replaceWithData(smpteMidiData, sizeof(smpteMidiData)),
+               "Can write temporary SMPTE MIDI fixture");
+
+    MidiProjectLoader loader;
+    MidiProjectData project;
+    juce::String error;
+    const bool ok = loader.load(file, project, error);
+    expectTrue(!ok, "Loader rejects SMPTE/non-PPQ MIDI");
+    expectTrue(error.containsIgnoreCase("SMPTE") || error.containsIgnoreCase("non-PPQ"),
+               "Loader reports clear SMPTE/non-PPQ error");
+}
+
+void testTrackNoteExtractorFlushesOrphans()
+{
+    TempoMap map;
+    std::vector<TempoMetaEvent> tempos { { 0.0, 120.0 } };
+    std::vector<TimeSignatureMetaEvent> signatures { { 0.0, 4, 4 } };
+    map.build(960.0, tempos, signatures, 960.0);
+
+    juce::MidiMessageSequence seq;
+    auto onOrphan = juce::MidiMessage::noteOn(1, 60, (juce::uint8) 100);
+    onOrphan.setTimeStamp(0.0);
+    seq.addEvent(onOrphan);
+
+    auto onNormal = juce::MidiMessage::noteOn(1, 64, (juce::uint8) 100);
+    onNormal.setTimeStamp(240.0);
+    seq.addEvent(onNormal);
+
+    auto offNormal = juce::MidiMessage::noteOff(1, 64);
+    offNormal.setTimeStamp(480.0);
+    seq.addEvent(offNormal);
+
+    const auto notes = TrackNoteExtractor::extract(seq, map);
+    expectTrue(notes.size() == 2, "Extractor keeps normal notes and flushes orphaned note-on");
+
+    bool orphanFlushed = false;
+    for (const auto& note : notes)
+    {
+        if (note.noteNumber == 60)
+        {
+            orphanFlushed = std::abs(note.endTick - 480.0) < 1.0e-6;
+            break;
+        }
+    }
+    expectTrue(orphanFlushed, "Orphan note ends at final track tick");
+}
+
+void testScoreModelSplitsCrossBarNotes()
+{
+    TempoMap map;
+    std::vector<TempoMetaEvent> tempos { { 0.0, 120.0 } };
+    std::vector<TimeSignatureMetaEvent> signatures { { 0.0, 4, 4 } };
+    map.build(960.0, tempos, signatures, 7680.0);
+
+    QuantizedNote longNote;
+    longNote.midiNote = 60;
+    longNote.startQuarter = 3.0;
+    longNote.durationQuarter = 2.0;
+    longNote.value = NoteValue::half;
+
+    ScoreModel model;
+    model.build(map, std::vector<QuantizedNote> { longNote }, {}, 2);
+    const auto bars = model.getWindowBars(1, 0, 1);
+    expectTrue(bars.size() == 2, "ScoreModel returns two bars for split-note test");
+    if (bars.size() != 2)
+        return;
+
+    bool bar1TieFound = false;
+    for (const auto& note : bars[0].notes)
+    {
+        if (!note.isRest && note.midiNote == 60)
+            bar1TieFound = note.tieIntoNextBar;
+    }
+    expectTrue(bar1TieFound, "Start-bar note ties into next bar");
+
+    bool bar2ContinuationFound = false;
+    for (const auto& note : bars[1].notes)
+    {
+        if (!note.isRest && note.midiNote == 60 && std::abs(note.quarterInBar) < 1.0e-6)
+            bar2ContinuationFound = true;
+    }
+    expectTrue(bar2ContinuationFound, "Continuation note is present at next bar downbeat");
+}
+
+void testChordDetectorResetsAcrossSilence()
+{
+    TempoMap map;
+    std::vector<TempoMetaEvent> tempos { { 0.0, 120.0 } };
+    std::vector<TimeSignatureMetaEvent> signatures { { 0.0, 4, 4 } };
+    map.build(960.0, tempos, signatures, 11520.0); // 3 bars in 4/4 at 960 ppq
+
+    std::vector<MidiNoteEvent> notes;
+    for (const auto span : { std::pair<double, double> { 0.0, 2.0 }, std::pair<double, double> { 4.0, 6.0 } })
+    {
+        for (int midiNote : { 60, 64, 67 })
+        {
+            MidiNoteEvent ev;
+            ev.noteNumber = midiNote;
+            ev.startSec = span.first;
+            ev.endSec = span.second;
+            notes.push_back(ev);
+        }
+    }
+
+    const auto chords = ChordDetector::detect(notes, map, 3);
+    bool hasBar1 = false;
+    bool hasBar3 = false;
+    for (const auto& chord : chords)
+    {
+        hasBar1 = hasBar1 || chord.barNumber == 1;
+        hasBar3 = hasBar3 || chord.barNumber == 3;
+    }
+    expectTrue(hasBar1, "Chord detector annotates first bar");
+    expectTrue(hasBar3, "Chord detector re-announces chord after silence in later bar");
+}
+
+void testScoreModelNormalizesChordQuarterInBar()
+{
+    TempoMap map;
+    std::vector<TempoMetaEvent> tempos { { 0.0, 120.0 } };
+    std::vector<TimeSignatureMetaEvent> signatures { { 0.0, 4, 4 } };
+    map.build(960.0, tempos, signatures, 7680.0);
+
+    std::vector<ChordAnnotation> chords
+    {
+        { 2, 4.0, "C" },
+        { 2, 5.0, "G" }
+    };
+
+    ScoreModel model;
+    model.build(map, {}, chords, 2);
+    const auto bars = model.getWindowBars(2, 0, 0);
+    expectTrue(bars.size() == 1, "Can inspect bar 2 for chord normalization");
+    if (bars.empty())
+        return;
+
+    expectTrue(bars.front().chords.size() == 2, "Both chord changes are retained in the bar");
+    if (bars.front().chords.size() >= 2)
+    {
+        expectTrue(std::abs(bars.front().chords[0].quarter - 0.0) < 1.0e-6, "First chord starts at quarter-in-bar 0");
+        expectTrue(std::abs(bars.front().chords[1].quarter - 1.0) < 1.0e-6, "Second chord starts at quarter-in-bar 1");
+    }
+}
 }
 
 int main()
@@ -87,6 +249,11 @@ int main()
     testTempoMap();
     testQuantizer();
     testChordDetector();
+    testMidiLoaderRejectsSmpte();
+    testTrackNoteExtractorFlushesOrphans();
+    testScoreModelSplitsCrossBarNotes();
+    testChordDetectorResetsAcrossSilence();
+    testScoreModelNormalizesChordQuarterInBar();
 
     if (failures == 0)
     {
