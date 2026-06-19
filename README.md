@@ -2,7 +2,7 @@
 
 MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders up to three selected tracks as score-like notation, detects chords, and follows playback with a rolling 5-bar view.
 
-![MidiScorer UI](resources/midiscorer.png)
+![MidiScorer UI](src/resources/midiscorer.png)
 
 ## Current capabilities
 
