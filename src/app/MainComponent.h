@@ -58,15 +58,18 @@ public:
         staff3ClefSelector.setSelectedId(1, juce::dontSendNotification);
         staff3ClefSelector.onChange = [this] { rebuildAllStaffs(); };
 
-        addAndMakeVisible(playButton);
-        playButton.setButtonText("Play");
-        playButton.onClick = [this] { startPlayback(); };
+        addAndMakeVisible(transportToggleButton);
+        transportToggleButton.setButtonText("Start");
+        transportToggleButton.onClick = [this] { onTransportToggleClicked(); };
 
         addAndMakeVisible(accidentalSelector);
         accidentalSelector.addItem("Sharp names", 1);
         accidentalSelector.addItem("Flat names", 2);
         accidentalSelector.setSelectedId(1, juce::dontSendNotification);
         accidentalSelector.onChange = [this] { rebuildAllStaffs(); };
+        addAndMakeVisible(accidentalHelpButton);
+        accidentalHelpButton.setButtonText("?");
+        accidentalHelpButton.onClick = [this] { showAccidentalHelpModal(); };
 
         addAndMakeVisible(aliasSelector);
         aliasSelector.addItem("Chord text plain", 1);
@@ -90,13 +93,11 @@ public:
         addAndMakeVisible(globalTransposeInput);
         globalTransposeInput.setInputRestrictions(3, "-0123456789");
         globalTransposeInput.setText("0", juce::dontSendNotification);
-        globalTransposeInput.setTooltip("Global transpose semitones applied to all staffs and chord analysis.");
         globalTransposeInput.onReturnKey = [this] { rebuildAllStaffs(); };
         globalTransposeInput.onFocusLost = [this] { rebuildAllStaffs(); };
-
-        addAndMakeVisible(stopButton);
-        stopButton.setButtonText("Stop");
-        stopButton.onClick = [this] { stopPlayback(true); };
+        addAndMakeVisible(transposeHelpButton);
+        transposeHelpButton.setButtonText("?");
+        transposeHelpButton.onClick = [this] { showTransposeHelpModal(); };
 
         addAndMakeVisible(continueButton);
         continueButton.setButtonText("Continue");
@@ -130,9 +131,11 @@ public:
         addAndMakeVisible(keyOverrideInput);
         keyOverrideInput.setInputRestrictions(6, "ABCDEFGabcdefg#bBmMnNiI");
         keyOverrideInput.setText({}, juce::dontSendNotification);
-        keyOverrideInput.setTooltip("Override detected song key (e.g., C, Bb, F#, F#m).");
         keyOverrideInput.onReturnKey = [this] { applyKeyOverrideFromInput(true); rebuildAllStaffs(); };
         keyOverrideInput.onFocusLost = [this] { applyKeyOverrideFromInput(true); rebuildAllStaffs(); };
+        addAndMakeVisible(keyHelpButton);
+        keyHelpButton.setButtonText("?");
+        keyHelpButton.onClick = [this] { showKeyHelpModal(); };
 
         addAndMakeVisible(tempoOverrideLabel);
         tempoOverrideLabel.setText("Tempo:", juce::dontSendNotification);
@@ -143,10 +146,9 @@ public:
         tempoOverrideInput.setTooltip("Override playback tempo BPM (e.g., 96 or 120.5). Leave blank to use detected tempo.");
         tempoOverrideInput.onReturnKey = [this] { applyTempoOverrideFromInput(true); };
         tempoOverrideInput.onFocusLost = [this] { applyTempoOverrideFromInput(true); };
-        addAndMakeVisible(tempoOverrideHintLabel);
-        tempoOverrideHintLabel.setText("blank=MIDI", juce::dontSendNotification);
-        tempoOverrideHintLabel.setJustificationType(juce::Justification::centredLeft);
-        tempoOverrideHintLabel.setTooltip("Leave the tempo override blank to use the MIDI tempo map.");
+        addAndMakeVisible(tempoHelpButton);
+        tempoHelpButton.setButtonText("?");
+        tempoHelpButton.onClick = [this] { showTempoHelpModal(); };
 
         addAndMakeVisible(transportLabel);
         transportLabel.setText("Bar 1", juce::dontSendNotification);
@@ -185,15 +187,16 @@ public:
         auto row = area.removeFromTop(34);
 
         loadButton.setBounds(row.removeFromLeft(120).reduced(4, 0));
-        playButton.setBounds(row.removeFromLeft(90).reduced(4, 0));
-        stopButton.setBounds(row.removeFromLeft(90).reduced(4, 0));
+        transportToggleButton.setBounds(row.removeFromLeft(106).reduced(4, 0));
         continueButton.setBounds(row.removeFromLeft(100).reduced(4, 0));
         continueBarLabel.setBounds(row.removeFromLeft(34));
         continueBarInput.setBounds(row.removeFromLeft(64).reduced(4, 0));
         accidentalSelector.setBounds(row.removeFromLeft(120).reduced(4, 0));
+        accidentalHelpButton.setBounds(row.removeFromLeft(28).reduced(4, 0));
         aliasSelector.setBounds(row.removeFromLeft(136).reduced(4, 0));
         globalTransposeLabel.setBounds(row.removeFromLeft(74));
         globalTransposeInput.setBounds(row.removeFromLeft(48).reduced(4, 0));
+        transposeHelpButton.setBounds(row.removeFromLeft(28).reduced(4, 0));
         scoreColorToggle.setBounds(row.removeFromLeft(106).reduced(4, 0));
         chordTracksLabel.setBounds(row.removeFromLeft(110));
 
@@ -209,8 +212,8 @@ public:
         layoutStaffControls(section1, staff1TrackLabel, staff1TrackSelector, staff1ClefSelector);
         layoutStaffControls(section2, staff2TrackLabel, staff2TrackSelector, staff2ClefSelector);
         layoutStaffControls(section3, staff3TrackLabel, staff3TrackSelector, staff3ClefSelector);
-        staff2TrackLabel.setBounds(staff2TrackLabel.getBounds().translated(-12, 0));
-        staff3TrackLabel.setBounds(staff3TrackLabel.getBounds().translated(-12, 0));
+        staff2TrackLabel.setBounds(staff2TrackLabel.getBounds().translated(6, 0));
+        staff3TrackLabel.setBounds(staff3TrackLabel.getBounds().translated(6, 0));
 
         area.removeFromTop(6);
         auto chordTracksArea = area.removeFromTop(getChordTracksLayoutHeight(area.getWidth()));
@@ -222,9 +225,10 @@ public:
         loadPresetButton.setBounds(statusRow.removeFromLeft(100).reduced(4, 0));
         tempoOverrideLabel.setBounds(statusRow.removeFromLeft(50));
         tempoOverrideInput.setBounds(statusRow.removeFromLeft(72).reduced(4, 0));
-        tempoOverrideHintLabel.setBounds(statusRow.removeFromLeft(80));
+        tempoHelpButton.setBounds(statusRow.removeFromLeft(28).reduced(4, 0));
         keyOverrideLabel.setBounds(statusRow.removeFromLeft(36));
         keyOverrideInput.setBounds(statusRow.removeFromLeft(68).reduced(4, 0));
+        keyHelpButton.setBounds(statusRow.removeFromLeft(28).reduced(4, 0));
         statusLabel.setBounds(statusRow);
         area.removeFromTop(8);
 
@@ -425,7 +429,9 @@ private:
     {
         if (!project.hasKeySignature)
             return 0;
-        return tonicPcFromSignature(project.keySharpsOrFlats, project.keyIsMajor);
+        // tonicPcFromSignature expects "isMinor", while MIDI metadata stores "isMajor".
+        const int tonicPc = tonicPcFromSignature(project.keySharpsOrFlats, !project.keyIsMajor);
+        return tonicPc;
     }
 
     int getKeyOverrideTransposeSemitones() const
@@ -433,7 +439,8 @@ private:
         if (!keyOverride.has_value())
             return 0;
 
-        int delta = keyOverride->tonicPc - getDetectedKeyTonicPc();
+        const int detectedTonic = getDetectedKeyTonicPc();
+        int delta = keyOverride->tonicPc - detectedTonic;
         while (delta > 6)
             delta -= 12;
         while (delta < -6)
@@ -887,7 +894,10 @@ private:
         fileChooser = std::make_unique<juce::FileChooser>(
             "Select a MIDI file",
             juce::File(),
-            "*.mid;*.midi");
+            "*.mid;*.midi",
+            false,
+            false,
+            this);
 
         const auto chooserFlags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
         fileChooser->launchAsync(chooserFlags, [this](const juce::FileChooser& chooser)
@@ -1050,6 +1060,58 @@ private:
         scoreRenderer3.setColorScheme(scheme);
     }
 
+    static void showInfoModal(juce::Component* parent, const juce::String& title, const juce::String& message)
+    {
+        juce::AlertWindow::showMessageBoxAsync(
+            juce::MessageBoxIconType::InfoIcon,
+            title,
+            message,
+            "OK",
+            parent);
+    }
+
+    void showTransposeHelpModal()
+    {
+        showInfoModal(this,
+                      "Transpose Help",
+                      "Enter semitones from -24 to +24 to shift all staffs and chord analysis.\n\n"
+                      "Examples:\n"
+                      "  3  moves C up to Eb\n"
+                      " -3  moves C down to A\n\n"
+                      "Drum clef staffs and GM channel 10 percussion are not transposed.\n"
+                      "This value stacks with the Key override.");
+    }
+
+    void showKeyHelpModal()
+    {
+        showInfoModal(this,
+                      "Key Override Help",
+                      "Override the song key for notation and transposition.\n\n"
+                      "Examples: C, Eb, F#, Cm, Ebm\n"
+                      "Use b for flats (Eb, Bb) and # for sharps (F#).\n"
+                      "Add m for minor keys.\n\n"
+                      "Leave blank to use the key from the MIDI file.\n"
+                      "When set, the app transposes by the difference between the MIDI key and your override.");
+    }
+
+    void showTempoHelpModal()
+    {
+        showInfoModal(this,
+                      "Tempo Override Help",
+                      "Enter a BPM value from 10 to 400 to override playback tempo.\n\n"
+                      "Leave blank to use the tempo map from the MIDI file.\n"
+                      "Per-song tempo overrides are saved in your preset profile.");
+    }
+
+    void showAccidentalHelpModal()
+    {
+        showInfoModal(this,
+                      "Accidental Names Help",
+                      "Choose whether chords and accidentals prefer sharp or flat spelling.\n\n"
+                      "This affects display only (for example D# vs Eb).\n"
+                      "It does not change pitch or transposition.");
+    }
+
     void startPlayback()
     {
         if (project.tracks.empty())
@@ -1103,12 +1165,25 @@ private:
         updateTransportControls();
     }
 
+    void onTransportToggleClicked()
+    {
+        if (playbackController.isPlaying())
+            stopPlayback(true);
+        else
+            startPlayback();
+    }
+
+    void refreshTransportToggleButtonText()
+    {
+        transportToggleButton.setButtonText(playbackController.isPlaying() ? "Stop" : "Start");
+    }
+
     void updateTransportControls()
     {
         const bool hasProject = !project.tracks.empty();
         const bool isPlaying = playbackController.isPlaying();
-        playButton.setEnabled(hasProject && !isPlaying);
-        stopButton.setEnabled(hasProject && isPlaying);
+        transportToggleButton.setEnabled(hasProject);
+        refreshTransportToggleButtonText();
         continueButton.setEnabled(hasProject && !isPlaying && continueArmed);
         continueBarInput.setEnabled(hasProject && !isPlaying && continueArmed);
     }
@@ -1142,7 +1217,9 @@ private:
         const auto keyText = keyOverride.has_value()
             ? ("KeySrc: override (" + keyOverride->displayText + ")")
             : ("KeySrc: detected (" + project.getKeyDisplayText() + ")");
-        const auto barText = "Bar: " + juce::String(juce::jmax(1, displayedBar));
+        const auto barText = project.tracks.empty()
+            ? juce::String("Bar: n/a")
+            : ("Bar: " + juce::String(juce::jmax(1, displayedBar)) + "/" + juce::String(juce::jmax(1, project.maxBar)));
         return buildMidiMetaText() + "  | " + keyText + "  | " + barText;
     }
 
@@ -1169,15 +1246,16 @@ private:
     juce::Label staff3TrackLabel;
     juce::ComboBox staff3TrackSelector;
     juce::ComboBox staff3ClefSelector;
-    juce::TextButton playButton;
+    juce::TextButton transportToggleButton;
     juce::ComboBox accidentalSelector;
+    juce::TextButton accidentalHelpButton;
     juce::ComboBox aliasSelector;
     juce::Label chordTracksLabel;
     juce::OwnedArray<juce::ToggleButton> chordTrackButtons;
     juce::ToggleButton scoreColorToggle;
     juce::Label globalTransposeLabel;
     juce::TextEditor globalTransposeInput;
-    juce::TextButton stopButton;
+    juce::TextButton transposeHelpButton;
     juce::TextButton continueButton;
     juce::Label continueBarLabel;
     juce::TextEditor continueBarInput;
@@ -1186,9 +1264,10 @@ private:
     juce::Label statusLabel;
     juce::Label tempoOverrideLabel;
     juce::TextEditor tempoOverrideInput;
-    juce::Label tempoOverrideHintLabel;
+    juce::TextButton tempoHelpButton;
     juce::Label keyOverrideLabel;
     juce::TextEditor keyOverrideInput;
+    juce::TextButton keyHelpButton;
     juce::Label transportLabel;
     juce::Label keyLabel;
     juce::Label midiMetaLabel;
