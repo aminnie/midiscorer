@@ -2,6 +2,8 @@
 
 MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders up to three selected tracks as score-like notation, detects chords, and follows playback with a rolling 5-bar view.
 
+![MidiScorer UI](resources/midiscorer.png)
+
 ## Current capabilities
 
 - Load `.mid` / `.midi` files.
@@ -15,6 +17,7 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
 - Render score-style notation with:
   - noteheads, stems, flags, ties
   - key-aware accidental display (`#`/`b` preference by key signature)
+  - key-signature glyphs (up to 7 sharps/flats) rendered at the first visible bar on each staff
   - explicit rest symbols (gaps are modeled and rendered as rests)
 - Detect/display chords:
   - static bar chord label (left-aligned)
@@ -27,6 +30,10 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
 - Display options:
   - `Light Score` / dark score toggle (Light Score is default)
   - status line includes Sig, Tempo, Key, and Bar
+- UI layout refinements:
+  - first-row controls place transpose and score color toggle directly after chord naming options
+  - staff selector row is compacted for faster Staff 1/2/3 scanning
+  - `Save Preset` / `Load Preset` are placed directly in the status row
 - Window title includes loaded MIDI filename.
 
 ## Project structure
@@ -108,7 +115,7 @@ ctest --test-dir build -C Debug --output-on-failure
 - `Notation model`
   - `src/notation/ScoreModel.h` inserts explicit rest symbols per bar by gap-filling occupied note spans.
 - `Notation rendering`
-  - `src/notation/ScoreRenderer.h` handles static chord labels, live chord marker, notes, rests, and accidental display.
+  - `src/notation/ScoreRenderer.h` handles static chord labels, live chord marker, notes, rests, accidental display, and first-visible-bar key signatures per staff.
 - `UI orchestration`
   - `src/app/MainComponent.h` coordinates all preferences, preset load/save, multi-staff rebuilds, and timer-based updates.
 

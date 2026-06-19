@@ -27,6 +27,7 @@ Recent feature areas to keep isolated in PRs:
 - chord-track checkbox source selection
 - live eighth-note chord marker behavior
 - rest insertion and rendering
+- first-visible-bar key-signature drawing
 
 ## Core architecture guardrails
 
@@ -45,6 +46,7 @@ For changes in:
 - `src/notation/ScoreModel.h`: add or adjust gap/rest insertion behavior checks.
 - `src/harmony/ChordDetector.h`: add chord match and naming-option checks.
 - `src/app/MainComponent.h`: include manual playback smoke coverage for timer/live marker behavior.
+- `src/notation/ScoreRenderer.h`: include manual rendering checks for clef-specific key signature positioning.
 
 At minimum before submitting:
 
@@ -57,9 +59,11 @@ At minimum before submitting:
    - toggle chord-track checkboxes
    - verify chord naming preference toggles
    - verify light/dark score toggle
+   - verify key signature glyphs appear at the left edge of the first visible bar on each staff
    - verify rolling bar playback updates
    - verify live chord marker changes only when chord changes
    - verify Stop pre-fills Continue bar and Continue resumes correctly
+   - verify Save/Load preset buttons remain usable from the status row
 
 ## PR checklist
 

@@ -164,19 +164,25 @@ public:
         continueBarInput.setBounds(row.removeFromLeft(64).reduced(4, 0));
         accidentalSelector.setBounds(row.removeFromLeft(120).reduced(4, 0));
         aliasSelector.setBounds(row.removeFromLeft(136).reduced(4, 0));
-        chordTracksLabel.setBounds(row.removeFromLeft(110));
         globalTransposeLabel.setBounds(row.removeFromLeft(74));
         globalTransposeInput.setBounds(row.removeFromLeft(48).reduced(4, 0));
         scoreColorToggle.setBounds(row.removeFromLeft(106).reduced(4, 0));
+        chordTracksLabel.setBounds(row.removeFromLeft(110));
 
         area.removeFromTop(6);
         auto selectorRow = area.removeFromTop(26);
-        auto section1 = selectorRow.removeFromLeft(selectorRow.getWidth() / 3);
-        auto section2 = selectorRow.removeFromLeft(selectorRow.getWidth() / 2);
-        auto section3 = selectorRow;
+        constexpr int staffSectionWidth = 338;
+        constexpr int staffSectionGap = 6;
+        auto section1 = selectorRow.removeFromLeft(juce::jmin(staffSectionWidth, selectorRow.getWidth()));
+        selectorRow.removeFromLeft(juce::jmin(staffSectionGap, selectorRow.getWidth()));
+        auto section2 = selectorRow.removeFromLeft(juce::jmin(staffSectionWidth, selectorRow.getWidth()));
+        selectorRow.removeFromLeft(juce::jmin(staffSectionGap, selectorRow.getWidth()));
+        auto section3 = selectorRow.removeFromLeft(juce::jmin(staffSectionWidth, selectorRow.getWidth()));
         layoutStaffControls(section1, staff1TrackLabel, staff1TrackSelector, staff1ClefSelector);
         layoutStaffControls(section2, staff2TrackLabel, staff2TrackSelector, staff2ClefSelector);
         layoutStaffControls(section3, staff3TrackLabel, staff3TrackSelector, staff3ClefSelector);
+        staff2TrackLabel.setBounds(staff2TrackLabel.getBounds().translated(-12, 0));
+        staff3TrackLabel.setBounds(staff3TrackLabel.getBounds().translated(-12, 0));
 
         area.removeFromTop(6);
         auto chordTracksArea = area.removeFromTop(getChordTracksLayoutHeight(area.getWidth()));
@@ -184,12 +190,12 @@ public:
 
         area.removeFromTop(6);
         auto statusRow = area.removeFromTop(24);
-        loadPresetButton.setBounds(statusRow.removeFromRight(100).reduced(4, 0));
-        savePresetButton.setBounds(statusRow.removeFromRight(100).reduced(4, 0));
+        savePresetButton.setBounds(statusRow.removeFromLeft(100).reduced(4, 0));
+        loadPresetButton.setBounds(statusRow.removeFromLeft(100).reduced(4, 0));
         statusLabel.setBounds(statusRow);
         area.removeFromTop(8);
 
-        const int laneGap = 8;
+        const int laneGap = 4;
         auto lane1 = area.removeFromTop((area.getHeight() - laneGap * 2) / 3);
         area.removeFromTop(laneGap);
         auto lane2 = area.removeFromTop((area.getHeight() - laneGap) / 2);

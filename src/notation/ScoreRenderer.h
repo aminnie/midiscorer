@@ -87,10 +87,11 @@ public:
         const int barW = bounds.getWidth() / static_cast<int>(bars.size());
         int x = bounds.getX();
 
-        for (const auto& bar : bars)
+        for (size_t i = 0; i < bars.size(); ++i)
         {
+            const auto& bar = bars[i];
             juce::Rectangle<int> barRect(x, bounds.getY(), barW, bounds.getHeight());
-            drawBar(g, bar, barRect, bar.barNumber == currentBar);
+            drawBar(g, bar, barRect, bar.barNumber == currentBar, i == 0);
             x += barW;
         }
     }
@@ -193,7 +194,56 @@ private:
         }
     }
 
-    void drawBar(juce::Graphics& g, const ScoreBar& bar, const juce::Rectangle<int>& barRect, bool isCurrent) const
+    static int keySignatureReserveWidth(bool hasSignature, int sharpsOrFlats)
+    {
+        if (!hasSignature || sharpsOrFlats == 0)
+            return 0;
+
+        const int symbolCount = juce::jlimit(0, 7, std::abs(sharpsOrFlats));
+        return 8 + symbolCount * 9;
+    }
+
+    void drawKeySignature(juce::Graphics& g, const juce::Rectangle<int>& staffRect, int reserveWidth, juce::Colour colour) const
+    {
+        if (!hasKeySignature || keySharpsOrFlats == 0 || reserveWidth <= 0)
+            return;
+
+        const bool isSharp = keySharpsOrFlats > 0;
+        const int symbolCount = juce::jlimit(0, 7, std::abs(keySharpsOrFlats));
+        const int lineSpacing = 11;
+        const int halfStep = lineSpacing / 2;
+        const int centerY = staffRect.getCentreY();
+
+        // Positions in half-staff steps from center for standard key signature order.
+        static constexpr std::array<int, 7> trebleSharpOffsets = { 4, 1, 5, 2, -1, 3, 0 };
+        static constexpr std::array<int, 7> bassSharpOffsets = { 2, -1, 3, 0, -3, 1, -2 };
+        static constexpr std::array<int, 7> trebleFlatOffsets = { 0, 3, -1, 2, -2, 1, -3 };
+        static constexpr std::array<int, 7> bassFlatOffsets = { -2, 1, -3, 0, -4, -1, -5 };
+
+        const auto& offsets = isSharp
+            ? (clefType == ClefType::bass ? bassSharpOffsets : trebleSharpOffsets)
+            : (clefType == ClefType::bass ? bassFlatOffsets : trebleFlatOffsets);
+        const auto symbol = isSharp ? "#" : "b";
+
+        g.setColour(colour);
+        g.setFont(13.0f);
+        int x = staffRect.getX() + 10;
+        const int maxX = staffRect.getX() + reserveWidth;
+        for (int i = 0; i < symbolCount; ++i)
+        {
+            const int y = centerY - offsets[(size_t) i] * halfStep - 8;
+            g.drawText(symbol, juce::Rectangle<int>(x, y, 10, 16), juce::Justification::centred);
+            x += 9;
+            if (x > maxX)
+                break;
+        }
+    }
+
+    void drawBar(juce::Graphics& g,
+                 const ScoreBar& bar,
+                 const juce::Rectangle<int>& barRect,
+                 bool isCurrent,
+                 bool isFirstVisibleBar) const
     {
         const bool isDark = colorScheme == ColorScheme::dark;
         const auto barFill = isDark
@@ -223,6 +273,7 @@ private:
         const int staffTop = barRect.getY() + 44;
         const int staffHeight = barRect.getHeight() - 58;
         juce::Rectangle<int> staffRect(barRect.getX() + 6, staffTop, barRect.getWidth() - 12, staffHeight);
+        const int keySigWidth = isFirstVisibleBar ? keySignatureReserveWidth(hasKeySignature, keySharpsOrFlats) : 0;
 
         auto barHeader = barRect;
         barHeader = barHeader.removeFromTop(18);
@@ -250,9 +301,12 @@ private:
             g.drawLine((float) staffRect.getX(), (float) y, (float) staffRect.getRight(), (float) y, 1.0f);
         }
 
+        if (keySigWidth > 0)
+            drawKeySignature(g, staffRect, keySigWidth, noteColour);
+
         const double qPerBar = static_cast<double>(bar.numerator) * 4.0 / static_cast<double>(bar.denominator);
-        const float left = static_cast<float>(staffRect.getX() + 6);
-        const float width = static_cast<float>(staffRect.getWidth() - 12);
+        const float left = static_cast<float>(staffRect.getX() + 6 + keySigWidth);
+        const float width = static_cast<float>(juce::jmax(20, staffRect.getWidth() - 12 - keySigWidth));
         const int beatCount = juce::jmax(1, bar.numerator);
 
         if (liveChordVisible && bar.barNumber == liveChordBarNumber && liveChordText.isNotEmpty())
