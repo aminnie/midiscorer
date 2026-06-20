@@ -56,3 +56,22 @@ This checklist tracks code-review findings and implementation work items.
   - Files: `tests/fixtures/fixture-specs.md` (mapping via test names/comments)
   - Acceptance:
     - New tests reference fixture-like scenarios (tempo changes, syncopation, ties, altered chords).
+
+## Priority 4 - Player/tab integration
+
+- [x] Add loosely-coupled MIDI playback adapter and transport position interface.
+  - Files: `src/playback/IPlaybackPositionSource.h`, `src/playback/MidiFilePlaybackEngineAdapter.h`, `src/playback/PlaybackController.h`
+  - Acceptance:
+    - Playback position remains the authority for score rendering and live chord windows.
+    - Scheduled MIDI events are emitted by adapter against caller-supplied playback time.
+- [x] Add single-device MIDI output selection and Player tab transport UI.
+  - Files: `src/playback/MidiOutputDevice.h`, `src/app/PlayerTabComponent.h`, `src/app/AppTabsHost.h`, `Main.cpp`
+  - Acceptance:
+    - User can select one detected MIDI output device.
+    - Player tab exposes Play/Pause/Stop and bar seek/play-from-bar controls.
+    - Tab host includes separate `Score` and `Player` pages.
+- [x] Keep playback output path GM-only and avoid organ-style routing complexity.
+  - Files: `src/app/MainComponent.h`
+  - Acceptance:
+    - Scheduled playback messages route only to the selected single output.
+    - No per-track/per-module routing dependencies introduced.

@@ -1,6 +1,6 @@
 # MidiScorer
 
-MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders up to three selected tracks as score-like notation, detects chords, and follows playback with a rolling 5-bar view.
+MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders up to three selected tracks as score-like notation, detects chords, follows playback with a rolling 5-bar view, and can emit MIDI playback to a selected external MIDI output device.
 
 ![MidiScorer UI](src/resources/midiscorer.png)
 
@@ -31,6 +31,13 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
 - Playback controls:
   - `Play`, `Stop`, `Continue`, and bar start input
   - on `Stop`, continue bar auto-fills with current bar
+- Tabbed workspace:
+  - `Score` tab for notation/chord controls and renderers
+  - `Player` tab for transport controls and MIDI output selection
+- MIDI player and output:
+  - MIDI file playback events are scheduled from file time and dispatched on the same transport timeline that drives live score/chord updates
+  - single selected MIDI output device (GM-oriented output path)
+  - persisted selected output device identifier under `Documents/MidiScorer/midi_output.json`
 - Display options:
   - `Light Score` / dark score toggle (Light Score is default)
   - status line includes Sig, Tempo, Key, and Bar
@@ -44,7 +51,9 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
 
 - `CMakeLists.txt` - JUCE/CMake project setup
 - `Main.cpp` - JUCE application entry point
-- `src/app/MainComponent.h` - UI controls, orchestration, playback updates
+- `src/app/AppTabsHost.h` - top-level tab container (`Score` + `Player`)
+- `src/app/MainComponent.h` - score page UI controls, notation orchestration, playback sync
+- `src/app/PlayerTabComponent.h` - player page transport and MIDI output controls
 - `src/midi/TempoMap.h` - tempo/time-signature/bar conversion
 - `src/midi/TrackNoteExtractor.h` - note-on/note-off pairing
 - `src/midi/MidiProjectLoader.h` - MIDI ingestion and metadata extraction
@@ -53,7 +62,10 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
 - `src/notation/ScoreRenderer.h` - score drawing and live chord marker rendering
 - `src/harmony/ChordDetector.h` - chord analysis and naming options
 - `src/playback/PlaybackClock.h` - playback timing core
-- `src/playback/PlaybackController.h` - playback state + current bar
+- `src/playback/PlaybackController.h` - playback state/current bar implementing position-source interface
+- `src/playback/IPlaybackPositionSource.h` - transport position abstraction boundary
+- `src/playback/MidiFilePlaybackEngineAdapter.h` - scheduled MIDI-event playback adapter
+- `src/playback/MidiOutputDevice.h` - single-output MIDI device abstraction
 - `tests/test_main.cpp` - core tests
 - `tests/fixtures/` - fixture specs/documentation
 
@@ -96,9 +108,9 @@ ctest --test-dir build -C Debug --output-on-failure
    - global transpose
    - chord naming options
    - score color mode
-7. Click **Play**.
-8. Click **Stop** (Continue bar auto-populates current bar).
-9. Click **Continue** to resume from selected bar.
+7. Use **Score** tab to view/edit notation options and track assignments.
+8. Use **Player** tab to select an output device, then Play/Pause/Stop.
+9. Use **Seek** or **Play From Bar** in the Player tab to scrub/start from a specific bar.
 
 ## Notes and known limitations
 
@@ -106,7 +118,8 @@ ctest --test-dir build -C Debug --output-on-failure
 - Quantization is limited to 1/16 through whole-note values.
 - Rests, beaming, and accidental handling are practical approximations, not full engraving rules.
 - Chord detection uses deterministic template scoring and may be ambiguous for dense voicings.
-- Playback currently drives visual sync; MIDI output transport/routing is not DAW-grade.
+- Playback drives visual sync and optional MIDI output from one shared timeline.
+- Output is intentionally limited to a single GM-oriented MIDI destination (no per-track/device routing yet).
 
 ## Developer notes
 

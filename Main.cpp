@@ -1,5 +1,5 @@
 #include <JuceHeader.h>
-#include "src/app/MainComponent.h"
+#include "src/app/AppTabsHost.h"
 
 class MidiScorerApplication final : public juce::JUCEApplication
 {
@@ -36,7 +36,7 @@ private:
             setUsingNativeTitleBar(true);
             setResizable(true, true);
             setResizeLimits(960, 540, 2560, 1440);
-            setContentOwned(new MainComponent(), true);
+            setContentOwned(new AppTabsHost(), true);
             centreWithSize(1280, 720);
             setVisible(true);
         }

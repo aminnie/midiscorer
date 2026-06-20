@@ -5,6 +5,7 @@
 #include "../src/notation/Quantizer.h"
 #include "../src/notation/ScoreModel.h"
 #include "../src/harmony/ChordDetector.h"
+#include "../src/playback/MidiFilePlaybackEngineAdapter.h"
 
 namespace
 {
@@ -275,6 +276,37 @@ void testWindowClampBehaviorForScoreWindow()
     expectTrue(!highWindow.empty(), "High clamped bar produces a non-empty score window");
     expectTrue(!lowWindow.empty(), "Low clamped bar produces a non-empty score window");
 }
+
+void testMidiPlaybackAdapterSeekAndDispatch()
+{
+    MidiFilePlaybackEngineAdapter adapter;
+
+    juce::TemporaryFile tempFile("adapter_seek_dispatch.mid");
+    const auto file = tempFile.getFile();
+    static const uint8_t midiData[] =
+    {
+        0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06,
+        0x00, 0x00, 0x00, 0x01, 0x01, 0xE0,
+        0x4d, 0x54, 0x72, 0x6b, 0x00, 0x00, 0x00, 0x0D,
+        0x00, 0x90, 0x3C, 0x64,
+        0x83, 0x60, 0x80, 0x3C, 0x00,
+        0x00, 0xFF, 0x2F, 0x00
+    };
+    expectTrue(file.replaceWithData(midiData, sizeof(midiData)), "Can write temporary playback adapter MIDI fixture");
+
+    juce::String error;
+    expectTrue(adapter.loadFromFile(file, error), "Playback adapter loads MIDI fixture");
+    expectTrue(adapter.getEventCount() >= 2, "Playback adapter stores scheduled note events");
+
+    int emitted = 0;
+    auto result0 = adapter.processUntilPlaybackTime(0.0, [&](const juce::MidiMessage&) { ++emitted; });
+    expectTrue(result0.emittedEventCount == 1, "Playback adapter emits note-on at start");
+
+    adapter.seekToPlaybackTime(0.45);
+    emitted = 0;
+    auto result1 = adapter.processUntilPlaybackTime(0.5, [&](const juce::MidiMessage&) { ++emitted; });
+    expectTrue(result1.emittedEventCount >= 1, "Playback adapter emits note-off after seek");
+}
 }
 
 int main()
@@ -288,6 +320,7 @@ int main()
     testChordDetectorResetsAcrossSilence();
     testScoreModelNormalizesChordQuarterInBar();
     testWindowClampBehaviorForScoreWindow();
+    testMidiPlaybackAdapterSeekAndDispatch();
 
     if (failures == 0)
     {

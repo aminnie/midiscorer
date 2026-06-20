@@ -23,7 +23,12 @@ Core modules:
 - `src/notation/ScoreModel.h` - score-domain symbols (notes, rests, ties, chords)
 - `src/notation/ScoreRenderer.h` - drawing engine for staff notation
 - `src/harmony/ChordDetector.h` - chord-template detection and naming
-- `src/app/MainComponent.h` - orchestration, UI state, playback sync
+- `src/app/AppTabsHost.h` - top-level tab host (`Score`, `Player`)
+- `src/app/MainComponent.h` - score-page orchestration, UI state, playback sync
+- `src/app/PlayerTabComponent.h` - player-page transport and MIDI output UI
+- `src/playback/IPlaybackPositionSource.h` - transport position abstraction
+- `src/playback/MidiFilePlaybackEngineAdapter.h` - scheduled MIDI event engine adapter
+- `src/playback/MidiOutputDevice.h` - single MIDI output device abstraction
 
 ## 2) End-to-end data flow
 
@@ -37,7 +42,18 @@ Core modules:
    - computes chord events via `ChordDetector::detect()`
    - builds score bars via `ScoreModel::build()`
 5. `ScoreRenderer` paints rolling 5-bar windows centered on current playback bar.
-6. During playback, `timerCallback()` updates current bar and live chord markers.
+6. During playback, `timerCallback()` updates current bar/live chord markers and dispatches scheduled MIDI events to the selected output device.
+
+## 2.1) Playback and output architecture
+
+The player path is intentionally loosely coupled:
+
+- `PlaybackController` implements `IPlaybackPositionSource` and remains the single timing authority used by score rendering and live chord windows.
+- `MidiFilePlaybackEngineAdapter` loads MIDI message events from file and emits events up to a caller-provided playback time.
+- `MainComponent::timerCallback()` bridges the two by passing `getElapsedSeconds()` into the adapter and routing emitted messages through `MidiOutputDevice`.
+- `PlayerTabComponent` controls transport and output selection without embedding scoring logic.
+
+This keeps the scorer and player separable for future reuse in a tabbed host such as AMidiOrganOrg.
 
 ## 3) Note scoring design
 
@@ -261,6 +277,7 @@ Likely future improvements:
 - stronger chord context model (inversion weighting, temporal smoothing)
 - configurable chord detection window sizes
 - richer tie/rest engraving rules
+- per-track output routing (currently out of scope by design)
 
 ## 8) Validation strategy
 

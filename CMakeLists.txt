@@ -47,7 +47,9 @@ juce_generate_juce_header(MidiScorer)
 target_sources(MidiScorer
     PRIVATE
         Main.cpp
+        src/app/AppTabsHost.h
         src/app/MainComponent.h
+        src/app/PlayerTabComponent.h
         src/midi/MidiProjectLoader.h
         src/midi/TempoMap.h
         src/midi/TrackNoteExtractor.h
@@ -55,8 +57,11 @@ target_sources(MidiScorer
         src/notation/ScoreModel.h
         src/notation/ScoreRenderer.h
         src/harmony/ChordDetector.h
+        src/playback/IPlaybackPositionSource.h
         src/playback/PlaybackClock.h
         src/playback/PlaybackController.h
+        src/playback/MidiFilePlaybackEngineAdapter.h
+        src/playback/MidiOutputDevice.h
 )
 
 target_include_directories(MidiScorer

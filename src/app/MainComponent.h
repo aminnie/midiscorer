@@ -11,6 +11,8 @@
 #include "../notation/ScoreRenderer.h"
 #include "../harmony/ChordDetector.h"
 #include "../playback/PlaybackController.h"
+#include "../playback/MidiFilePlaybackEngineAdapter.h"
+#include "../playback/MidiOutputDevice.h"
 
 class MainComponent final : public juce::Component,
                             private juce::Timer
@@ -174,6 +176,7 @@ public:
         applyScoreColorScheme();
         setStatusMessage("Load a MIDI file to begin.");
         loadLastMidiDirectoryFromPreset();
+        loadSelectedMidiOutputFromConfig();
 
         updateTransportControls();
         setSize(1280, 720);
@@ -243,6 +246,115 @@ public:
         scoreRenderer.setBounds(lane1);
         scoreRenderer2.setBounds(lane2);
         scoreRenderer3.setBounds(lane3);
+    }
+
+    bool hasLoadedProject() const
+    {
+        return !project.tracks.empty();
+    }
+
+    bool isPlaybackRunning() const
+    {
+        return playbackPositionSource != nullptr && playbackPositionSource->isPlaying();
+    }
+
+    int getCurrentPlaybackBar() const
+    {
+        return playbackPositionSource != nullptr ? playbackPositionSource->getCurrentBar() : 1;
+    }
+
+    int getMaximumBar() const
+    {
+        return juce::jmax(1, project.maxBar);
+    }
+
+    juce::String getLoadedMidiFileName() const
+    {
+        return project.file.existsAsFile() ? project.file.getFileName() : juce::String();
+    }
+
+    std::vector<MidiOutputDeviceInfo> getAvailableMidiOutputs() const
+    {
+        return MidiOutputDevice::enumerateAvailableOutputs();
+    }
+
+    juce::String getSelectedMidiOutputIdentifier() const
+    {
+        return midiOutputDevice.getSelectedIdentifier();
+    }
+
+    juce::String getSelectedMidiOutputName() const
+    {
+        return midiOutputDevice.getSelectedName();
+    }
+
+    bool selectMidiOutputDevice(const juce::String& identifier, bool persistSelection, juce::String& error)
+    {
+        const bool opened = midiOutputDevice.openByIdentifier(identifier, error);
+        if (!opened)
+            return false;
+
+        if (persistSelection)
+            saveSelectedMidiOutputToConfig();
+        return true;
+    }
+
+    void clearMidiOutputDevice()
+    {
+        midiOutputDevice.close();
+        saveSelectedMidiOutputToConfig();
+    }
+
+    void startPlaybackFromStart()
+    {
+        startPlayback();
+    }
+
+    void pausePlayback()
+    {
+        if (!playbackController.isPlaying())
+            return;
+
+        const int currentBar = juce::jmax(1, playbackController.getCurrentBar());
+        continueBarInput.setText(juce::String(currentBar), juce::dontSendNotification);
+        playbackController.pause();
+        continueArmed = true;
+        midiOutputDevice.sendAllNotesOff();
+        updateTransportControls();
+        setStatusMessage("Playback paused at bar " + juce::String(currentBar) + ".");
+    }
+
+    void stopPlaybackAndReset()
+    {
+        stopPlayback(true);
+    }
+
+    void continuePlaybackFromBarExternal(int bar)
+    {
+        if (project.tracks.empty())
+            return;
+
+        continueArmed = true;
+        continueBarInput.setText(juce::String(bar), juce::dontSendNotification);
+        continuePlaybackFromBar();
+    }
+
+    void seekToBarExternal(int bar)
+    {
+        if (project.tracks.empty())
+            return;
+
+        const int clampedBar = juce::jlimit(1, juce::jmax(1, project.maxBar), bar);
+        playbackController.seekToSecond(project.tempoMap.barToSecondsDownbeat(clampedBar));
+        midiPlaybackEngine.seekToPlaybackTime(project.tempoMap.barToSecondsDownbeat(clampedBar));
+        scoreRenderer.setCurrentBar(clampedBar);
+        scoreRenderer2.setCurrentBar(clampedBar);
+        scoreRenderer3.setCurrentBar(clampedBar);
+        transportLabel.setText("Bar " + juce::String(clampedBar), juce::dontSendNotification);
+        displayedBar = clampedBar;
+        continueBarInput.setText(juce::String(clampedBar), juce::dontSendNotification);
+        continueArmed = true;
+        refreshStatusMessage();
     }
 
 private:
@@ -645,6 +757,46 @@ private:
         return dir.getChildFile("ui_preset.json");
     }
 
+    juce::File getMidiOutputConfigPath() const
+    {
+        auto dir = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("MidiScorer");
+        if (!dir.exists())
+            dir.createDirectory();
+        return dir.getChildFile("midi_output.json");
+    }
+
+    void saveSelectedMidiOutputToConfig() const
+    {
+        auto payloadObj = std::make_unique<juce::DynamicObject>();
+        payloadObj->setProperty("selectedOutputIdentifier", midiOutputDevice.getSelectedIdentifier());
+        payloadObj->setProperty("selectedOutputName", midiOutputDevice.getSelectedName());
+        getMidiOutputConfigPath().replaceWithText(juce::JSON::toString(juce::var(payloadObj.release())));
+    }
+
+    void loadSelectedMidiOutputFromConfig()
+    {
+        const auto configFile = getMidiOutputConfigPath();
+        if (!configFile.existsAsFile())
+            return;
+
+        juce::var parsed;
+        const auto parseResult = juce::JSON::parse(configFile.loadFileAsString(), parsed);
+        if (parseResult.failed() || !parsed.isObject())
+            return;
+
+        auto* object = parsed.getDynamicObject();
+        if (object == nullptr || !object->hasProperty("selectedOutputIdentifier"))
+            return;
+
+        const auto outputIdentifier = object->getProperty("selectedOutputIdentifier").toString();
+        if (outputIdentifier.isEmpty())
+            return;
+
+        juce::String error;
+        if (!midiOutputDevice.openByIdentifier(outputIdentifier, error))
+            juce::Logger::writeToLog("MidiScorer: could not restore MIDI output: " + error);
+    }
+
     void loadLastMidiDirectoryFromPreset()
     {
         const auto file = getPresetFilePath();
@@ -904,17 +1056,29 @@ private:
 
     void timerCallback() override
     {
-        if (!playbackController.isPlaying())
+        if (playbackPositionSource == nullptr || !playbackPositionSource->isPlaying())
             return;
 
-        if (playbackController.hasReachedEnd())
+        if (playbackPositionSource->hasReachedEnd())
         {
             stopPlayback(false);
             setStatusMessage("Playback finished.");
             return;
         }
 
-        const int bar = playbackController.getCurrentBar();
+        const double elapsedSec = playbackPositionSource->getElapsedSeconds();
+        auto midiDispatch = midiPlaybackEngine.processUntilPlaybackTime(elapsedSec, [this](const juce::MidiMessage& message)
+        {
+            midiOutputDevice.sendMessageNow(message);
+        });
+        if (midiDispatch.reachedEndOfStream && !midiPlaybackEngine.hasPendingEvents())
+        {
+            stopPlayback(false);
+            setStatusMessage("Playback finished.");
+            return;
+        }
+
+        const int bar = playbackPositionSource->getCurrentBar();
         scoreRenderer.setCurrentBar(bar);
         scoreRenderer2.setCurrentBar(bar);
         scoreRenderer3.setCurrentBar(bar);
@@ -924,7 +1088,6 @@ private:
         if (!project.tracks.empty())
         {
             const auto namingOptions = getChordNamingOptions();
-            const double elapsedSec = playbackController.getElapsedSeconds();
             const double quarter = project.tempoMap.secondsToQuarter(elapsedSec);
             const int eighthIndex = static_cast<int>(std::floor(quarter * 2.0 + 1.0e-6));
             const double windowQuarterStart = static_cast<double>(eighthIndex) / 2.0;
@@ -997,6 +1160,13 @@ private:
             if (!loader.load(file, loaded, error))
             {
                 setStatusMessage("Load failed: " + error);
+                updateWindowTitle();
+                return;
+            }
+
+            if (!midiPlaybackEngine.loadFromFile(file, error))
+            {
+                setStatusMessage("Load failed: unable to prepare MIDI player (" + error + ")");
                 updateWindowTitle();
                 return;
             }
@@ -1120,7 +1290,7 @@ private:
         rebuildStaff(2, staff3TrackSelector, staff3ClefSelector, scoreModel3, scoreRenderer3);
         resetLiveChordState();
 
-        const int bar = playbackController.isPlaying() ? playbackController.getCurrentBar() : 1;
+        const int bar = hasLoadedProject() ? juce::jlimit(1, juce::jmax(1, project.maxBar), playbackController.getCurrentBar()) : 1;
         scoreRenderer.setCurrentBar(bar);
         scoreRenderer2.setCurrentBar(bar);
         scoreRenderer3.setCurrentBar(bar);
@@ -1204,6 +1374,7 @@ private:
             return;
 
         playbackController.playFromStart();
+        midiPlaybackEngine.seekToPlaybackTime(0.0);
         continueArmed = false;
         resetLiveChordState();
         scoreRenderer.setCurrentBar(1);
@@ -1227,6 +1398,7 @@ private:
         continueBarInput.setText(juce::String(clampedBar), juce::dontSendNotification);
 
         playbackController.playFromBar(clampedBar);
+        midiPlaybackEngine.seekToPlaybackTime(project.tempoMap.barToSecondsDownbeat(clampedBar));
         continueArmed = false;
         resetLiveChordState();
         scoreRenderer.setCurrentBar(clampedBar);
@@ -1247,6 +1419,8 @@ private:
         }
 
         playbackController.stop();
+        midiPlaybackEngine.seekToPlaybackTime(0.0);
+        midiOutputDevice.sendAllNotesOff();
         continueArmed = userInitiated && !project.tracks.empty();
         updateTransportControls();
     }
@@ -1372,6 +1546,9 @@ private:
     ScoreModel scoreModel2;
     ScoreModel scoreModel3;
     PlaybackController playbackController;
+    IPlaybackPositionSource* playbackPositionSource = &playbackController;
+    MidiFilePlaybackEngineAdapter midiPlaybackEngine;
+    MidiOutputDevice midiOutputDevice;
     std::unique_ptr<juce::FileChooser> fileChooser;
     juce::File lastMidiDirectory;
     bool continueArmed = false;

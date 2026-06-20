@@ -3,9 +3,10 @@
 #include <JuceHeader.h>
 #include <optional>
 #include "PlaybackClock.h"
+#include "IPlaybackPositionSource.h"
 #include "../midi/TempoMap.h"
 
-class PlaybackController
+class PlaybackController : public IPlaybackPositionSource
 {
 public:
     void setTempoMap(const TempoMap* mapPtr, double durationSec)
@@ -55,29 +56,42 @@ public:
         playFromSecond(tempoMap->barToSecondsDownbeat(normalizedBar));
     }
 
+    void seekToSecond(double second)
+    {
+        const auto clampedMappedSec = totalDurationSec > 0.0
+            ? juce::jlimit(0.0, totalDurationSec, juce::jmax(0.0, second))
+            : juce::jmax(0.0, second);
+        clock.seek(clampedMappedSec / juce::jmax(1.0e-4, tempoScale));
+    }
+
     void stop()
     {
         clock.stop();
     }
 
-    bool isPlaying() const
+    void pause()
+    {
+        clock.pause();
+    }
+
+    bool isPlaying() const override
     {
         return clock.isPlaying();
     }
 
-    double getElapsedSeconds() const
+    double getElapsedSeconds() const override
     {
         return clock.getElapsedSeconds() * tempoScale;
     }
 
-    int getCurrentBar() const
+    int getCurrentBar() const override
     {
         if (tempoMap == nullptr)
             return 1;
         return tempoMap->secondsToBar(getElapsedSeconds());
     }
 
-    bool hasReachedEnd() const
+    bool hasReachedEnd() const override
     {
         return totalDurationSec > 0.0 && getElapsedSeconds() >= totalDurationSec;
     }
