@@ -30,7 +30,7 @@ public:
         staff1TrackLabel.setText("Staff 1", juce::dontSendNotification);
         staff1TrackLabel.setJustificationType(juce::Justification::centredRight);
         addAndMakeVisible(staff1TrackSelector);
-        staff1TrackSelector.onChange = [this] { rebuildAllStaffs(); };
+        staff1TrackSelector.onChange = [this] { rebuildAllStaffs(); refreshSavePresetButtonDirtyStyle(); };
         addAndMakeVisible(staff1ClefSelector);
         staff1ClefSelector.addItem("Treble", 1);
         staff1ClefSelector.addItem("Bass", 2);
@@ -42,7 +42,7 @@ public:
         staff2TrackLabel.setText("Staff 2", juce::dontSendNotification);
         staff2TrackLabel.setJustificationType(juce::Justification::centredRight);
         addAndMakeVisible(staff2TrackSelector);
-        staff2TrackSelector.onChange = [this] { rebuildAllStaffs(); };
+        staff2TrackSelector.onChange = [this] { rebuildAllStaffs(); refreshSavePresetButtonDirtyStyle(); };
         addAndMakeVisible(staff2ClefSelector);
         staff2ClefSelector.addItem("Treble", 1);
         staff2ClefSelector.addItem("Bass", 2);
@@ -54,7 +54,7 @@ public:
         staff3TrackLabel.setText("Staff 3", juce::dontSendNotification);
         staff3TrackLabel.setJustificationType(juce::Justification::centredRight);
         addAndMakeVisible(staff3TrackSelector);
-        staff3TrackSelector.onChange = [this] { rebuildAllStaffs(); };
+        staff3TrackSelector.onChange = [this] { rebuildAllStaffs(); refreshSavePresetButtonDirtyStyle(); };
         addAndMakeVisible(staff3ClefSelector);
         staff3ClefSelector.addItem("Treble", 1);
         staff3ClefSelector.addItem("Bass", 2);
@@ -70,7 +70,7 @@ public:
         accidentalSelector.addItem("Sharp names", 1);
         accidentalSelector.addItem("Flat names", 2);
         accidentalSelector.setSelectedId(1, juce::dontSendNotification);
-        accidentalSelector.onChange = [this] { rebuildAllStaffs(); };
+        accidentalSelector.onChange = [this] { rebuildAllStaffs(); refreshSavePresetButtonDirtyStyle(); };
         addAndMakeVisible(accidentalHelpButton);
         accidentalHelpButton.setButtonText("?");
         accidentalHelpButton.onClick = [this] { showAccidentalHelpModal(); };
@@ -79,7 +79,7 @@ public:
         aliasSelector.addItem("Chord text plain", 1);
         aliasSelector.addItem("Chord text jazz", 2);
         aliasSelector.setSelectedId(1, juce::dontSendNotification);
-        aliasSelector.onChange = [this] { rebuildAllStaffs(); };
+        aliasSelector.onChange = [this] { rebuildAllStaffs(); refreshSavePresetButtonDirtyStyle(); };
 
         addAndMakeVisible(chordTracksLabel);
         chordTracksLabel.setText("Chord Tracks", juce::dontSendNotification);
@@ -97,8 +97,8 @@ public:
         addAndMakeVisible(globalTransposeInput);
         globalTransposeInput.setInputRestrictions(3, "-0123456789");
         globalTransposeInput.setText("0", juce::dontSendNotification);
-        globalTransposeInput.onReturnKey = [this] { rebuildAllStaffs(); };
-        globalTransposeInput.onFocusLost = [this] { rebuildAllStaffs(); };
+        globalTransposeInput.onReturnKey = [this] { rebuildAllStaffs(); refreshSavePresetButtonDirtyStyle(); };
+        globalTransposeInput.onFocusLost = [this] { rebuildAllStaffs(); refreshSavePresetButtonDirtyStyle(); };
         addAndMakeVisible(transposeHelpButton);
         transposeHelpButton.setButtonText("?");
         transposeHelpButton.onClick = [this] { showTransposeHelpModal(); };
@@ -121,6 +121,7 @@ public:
         addAndMakeVisible(savePresetButton);
         savePresetButton.setButtonText("Save Preset");
         savePresetButton.onClick = [this] { saveUiPreset(); };
+        applySavePresetButtonCleanStyle();
 
         addAndMakeVisible(loadPresetButton);
         loadPresetButton.setButtonText("Load Preset");
@@ -135,8 +136,8 @@ public:
         addAndMakeVisible(keyOverrideInput);
         keyOverrideInput.setInputRestrictions(6, "ABCDEFGabcdefg#bBmMnNiI");
         keyOverrideInput.setText({}, juce::dontSendNotification);
-        keyOverrideInput.onReturnKey = [this] { applyKeyOverrideFromInput(true); rebuildAllStaffs(); };
-        keyOverrideInput.onFocusLost = [this] { applyKeyOverrideFromInput(true); rebuildAllStaffs(); };
+        keyOverrideInput.onReturnKey = [this] { applyKeyOverrideFromInput(true); rebuildAllStaffs(); refreshSavePresetButtonDirtyStyle(); };
+        keyOverrideInput.onFocusLost = [this] { applyKeyOverrideFromInput(true); rebuildAllStaffs(); refreshSavePresetButtonDirtyStyle(); };
         addAndMakeVisible(keyHelpButton);
         keyHelpButton.setButtonText("?");
         keyHelpButton.onClick = [this] { showKeyHelpModal(); };
@@ -148,8 +149,8 @@ public:
         tempoOverrideInput.setInputRestrictions(6, "0123456789.");
         tempoOverrideInput.setText({}, juce::dontSendNotification);
         tempoOverrideInput.setTooltip("Override playback tempo BPM (e.g., 96 or 120.5). Leave blank to use detected tempo.");
-        tempoOverrideInput.onReturnKey = [this] { applyTempoOverrideFromInput(true); };
-        tempoOverrideInput.onFocusLost = [this] { applyTempoOverrideFromInput(true); };
+        tempoOverrideInput.onReturnKey = [this] { applyTempoOverrideFromInput(true); refreshSavePresetButtonDirtyStyle(); };
+        tempoOverrideInput.onFocusLost = [this] { applyTempoOverrideFromInput(true); refreshSavePresetButtonDirtyStyle(); };
         addAndMakeVisible(tempoHelpButton);
         tempoHelpButton.setButtonText("?");
         tempoHelpButton.onClick = [this] { showTempoHelpModal(); };
@@ -435,6 +436,28 @@ private:
         juce::String displayText;
     };
 
+    struct ScoreSongSettingsSnapshot
+    {
+        std::array<int, 3> staffTrackSelection = { 0, 0, 0 };
+        juce::String chordTrackSelectionCsv;
+        int accidentalSelection = 1;
+        int aliasSelection = 1;
+        int transposeSemitones = 0;
+        juce::String keyOverrideText;
+        juce::String tempoOverrideText;
+
+        bool operator==(const ScoreSongSettingsSnapshot& other) const
+        {
+            return staffTrackSelection == other.staffTrackSelection
+                && chordTrackSelectionCsv == other.chordTrackSelectionCsv
+                && accidentalSelection == other.accidentalSelection
+                && aliasSelection == other.aliasSelection
+                && transposeSemitones == other.transposeSemitones
+                && keyOverrideText == other.keyOverrideText
+                && tempoOverrideText == other.tempoOverrideText;
+        }
+    };
+
     void updateWindowTitle()
     {
         if (auto* window = findParentComponentOfClass<juce::DocumentWindow>())
@@ -675,6 +698,71 @@ private:
         clefSelector.setBounds(area.removeFromLeft(78).reduced(4, 0));
     }
 
+    ScoreSongSettingsSnapshot buildCurrentScoreSongSettingsSnapshot() const
+    {
+        ScoreSongSettingsSnapshot snapshot;
+        snapshot.staffTrackSelection = { staff1TrackSelector.getSelectedItemIndex(),
+                                         staff2TrackSelector.getSelectedItemIndex(),
+                                         staff3TrackSelector.getSelectedItemIndex() };
+        snapshot.chordTrackSelectionCsv = buildChordTrackSelectionCsv();
+        snapshot.accidentalSelection = accidentalSelector.getSelectedId();
+        snapshot.aliasSelection = aliasSelector.getSelectedId();
+        snapshot.transposeSemitones = getClampedTranspose(globalTransposeInput);
+        snapshot.keyOverrideText = keyOverride.has_value() ? keyOverride->displayText : juce::String();
+        snapshot.tempoOverrideText = tempoOverrideInput.getText().trim();
+        return snapshot;
+    }
+
+    void markCurrentScoreSongSettingsAsSaved()
+    {
+        const auto songKey = getSongPresetKey();
+        if (songKey.isEmpty())
+        {
+            savedScoreSongSettingsSnapshot.reset();
+            savedScoreSongKey.clear();
+            return;
+        }
+
+        savedScoreSongSettingsSnapshot = buildCurrentScoreSongSettingsSnapshot();
+        savedScoreSongKey = songKey;
+    }
+
+    bool isScoreSongSettingsDirty() const
+    {
+        const auto songKey = getSongPresetKey();
+        if (songKey.isEmpty())
+            return false;
+
+        if (!savedScoreSongSettingsSnapshot.has_value() || savedScoreSongKey != songKey)
+            return false;
+
+        return !(buildCurrentScoreSongSettingsSnapshot() == savedScoreSongSettingsSnapshot.value());
+    }
+
+    void applySavePresetButtonCleanStyle()
+    {
+        savePresetButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        savePresetButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+        savePresetButton.setColour(juce::TextButton::buttonColourId, juce::Colours::black.darker());
+        savePresetButton.setColour(juce::TextButton::buttonOnColourId, juce::Colours::black.brighter());
+    }
+
+    void applySavePresetButtonDirtyStyle()
+    {
+        savePresetButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        savePresetButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+        savePresetButton.setColour(juce::TextButton::buttonColourId, juce::Colours::darkred);
+        savePresetButton.setColour(juce::TextButton::buttonOnColourId, juce::Colours::darkred.brighter());
+    }
+
+    void refreshSavePresetButtonDirtyStyle()
+    {
+        if (isScoreSongSettingsDirty())
+            applySavePresetButtonDirtyStyle();
+        else
+            applySavePresetButtonCleanStyle();
+    }
+
     static bool trackHasChordSourceContent(const MidiTrackData& track)
     {
         if (!track.notes.empty())
@@ -767,7 +855,7 @@ private:
             auto* button = chordTrackButtons.add(new juce::ToggleButton(project.tracks[(size_t) i].name));
             chordTrackSourceIndices.add(i);
             button->setToggleState(visibleCount < 5, juce::dontSendNotification);
-            button->onClick = [this]() { rebuildAllStaffs(); };
+            button->onClick = [this]() { rebuildAllStaffs(); refreshSavePresetButtonDirtyStyle(); };
             addAndMakeVisible(button);
             ++visibleCount;
         }
@@ -975,6 +1063,82 @@ private:
         return overridesObj->getProperty(songId).toString().trim();
     }
 
+    std::optional<std::array<int, 3>> getSongStaffTrackSelectionsFromPreset(const juce::DynamicObject& preset) const
+    {
+        const auto songKey = getSongPresetKey();
+        if (songKey.isEmpty() || !preset.hasProperty("staffTrackSelectionsBySong"))
+            return std::nullopt;
+
+        auto* bySongObj = preset.getProperty("staffTrackSelectionsBySong").getDynamicObject();
+        if (bySongObj == nullptr)
+            return std::nullopt;
+
+        const juce::Identifier songId(songKey);
+        if (!bySongObj->hasProperty(songId))
+            return std::nullopt;
+
+        auto* songSelectionObj = bySongObj->getProperty(songId).getDynamicObject();
+        if (songSelectionObj == nullptr)
+            return std::nullopt;
+
+        std::array<int, 3> selections
+            = { static_cast<int>(songSelectionObj->getProperty("staff1Track")),
+                static_cast<int>(songSelectionObj->getProperty("staff2Track")),
+                static_cast<int>(songSelectionObj->getProperty("staff3Track")) };
+        return selections;
+    }
+
+    std::optional<juce::String> getSongChordTrackSelectionFromPreset(const juce::DynamicObject& preset) const
+    {
+        const auto songKey = getSongPresetKey();
+        if (songKey.isEmpty() || !preset.hasProperty("chordTrackSelectionBySong"))
+            return std::nullopt;
+
+        auto* bySongObj = preset.getProperty("chordTrackSelectionBySong").getDynamicObject();
+        if (bySongObj == nullptr)
+            return std::nullopt;
+
+        const juce::Identifier songId(songKey);
+        if (!bySongObj->hasProperty(songId))
+            return std::nullopt;
+
+        return bySongObj->getProperty(songId).toString();
+    }
+
+    std::optional<int> getSongAccidentalSelectionFromPreset(const juce::DynamicObject& preset) const
+    {
+        const auto songKey = getSongPresetKey();
+        if (songKey.isEmpty() || !preset.hasProperty("accidentalBySong"))
+            return std::nullopt;
+
+        auto* bySongObj = preset.getProperty("accidentalBySong").getDynamicObject();
+        if (bySongObj == nullptr)
+            return std::nullopt;
+
+        const juce::Identifier songId(songKey);
+        if (!bySongObj->hasProperty(songId))
+            return std::nullopt;
+
+        return juce::jlimit(1, 2, static_cast<int>(bySongObj->getProperty(songId)));
+    }
+
+    std::optional<int> getSongAliasSelectionFromPreset(const juce::DynamicObject& preset) const
+    {
+        const auto songKey = getSongPresetKey();
+        if (songKey.isEmpty() || !preset.hasProperty("aliasBySong"))
+            return std::nullopt;
+
+        auto* bySongObj = preset.getProperty("aliasBySong").getDynamicObject();
+        if (bySongObj == nullptr)
+            return std::nullopt;
+
+        const juce::Identifier songId(songKey);
+        if (!bySongObj->hasProperty(songId))
+            return std::nullopt;
+
+        return juce::jlimit(1, 2, static_cast<int>(bySongObj->getProperty(songId)));
+    }
+
     void applyTrackMixFromPreset(const juce::DynamicObject& preset)
     {
         trackMixState.resizeForTrackCount(static_cast<int>(project.tracks.size()));
@@ -1043,6 +1207,10 @@ private:
         if (lastMidiDirectory.isDirectory())
             obj->setProperty("lastMidiDirectory", lastMidiDirectory.getFullPathName());
 
+        auto staffTrackSelectionsBySong = std::make_unique<juce::DynamicObject>();
+        auto chordTrackSelectionBySong = std::make_unique<juce::DynamicObject>();
+        auto accidentalBySong = std::make_unique<juce::DynamicObject>();
+        auto aliasBySong = std::make_unique<juce::DynamicObject>();
         auto transposeOverridesBySong = std::make_unique<juce::DynamicObject>();
         auto keyOverridesBySong = std::make_unique<juce::DynamicObject>();
         auto tempoOverridesBySong = std::make_unique<juce::DynamicObject>();
@@ -1057,6 +1225,34 @@ private:
             {
                 if (auto* existingObj = existingParsed.getDynamicObject())
                 {
+                    const auto existingStaffSelectionsVar = existingObj->getProperty("staffTrackSelectionsBySong");
+                    if (auto* existingStaffSelectionsObj = existingStaffSelectionsVar.getDynamicObject())
+                    {
+                        for (const auto& prop : existingStaffSelectionsObj->getProperties())
+                            staffTrackSelectionsBySong->setProperty(prop.name, prop.value);
+                    }
+
+                    const auto existingChordSelectionVar = existingObj->getProperty("chordTrackSelectionBySong");
+                    if (auto* existingChordSelectionObj = existingChordSelectionVar.getDynamicObject())
+                    {
+                        for (const auto& prop : existingChordSelectionObj->getProperties())
+                            chordTrackSelectionBySong->setProperty(prop.name, prop.value);
+                    }
+
+                    const auto existingAccidentalVar = existingObj->getProperty("accidentalBySong");
+                    if (auto* existingAccidentalObj = existingAccidentalVar.getDynamicObject())
+                    {
+                        for (const auto& prop : existingAccidentalObj->getProperties())
+                            accidentalBySong->setProperty(prop.name, prop.value);
+                    }
+
+                    const auto existingAliasVar = existingObj->getProperty("aliasBySong");
+                    if (auto* existingAliasObj = existingAliasVar.getDynamicObject())
+                    {
+                        for (const auto& prop : existingAliasObj->getProperties())
+                            aliasBySong->setProperty(prop.name, prop.value);
+                    }
+
                     const auto existingTransposeVar = existingObj->getProperty("transposeOverridesBySong");
                     if (auto* existingTransposeObj = existingTransposeVar.getDynamicObject())
                     {
@@ -1092,6 +1288,15 @@ private:
         if (songKey.isNotEmpty())
         {
             const juce::Identifier songId(songKey);
+            auto songStaffSelections = std::make_unique<juce::DynamicObject>();
+            songStaffSelections->setProperty("staff1Track", staff1TrackSelector.getSelectedItemIndex());
+            songStaffSelections->setProperty("staff2Track", staff2TrackSelector.getSelectedItemIndex());
+            songStaffSelections->setProperty("staff3Track", staff3TrackSelector.getSelectedItemIndex());
+            staffTrackSelectionsBySong->setProperty(songId, juce::var(songStaffSelections.release()));
+            chordTrackSelectionBySong->setProperty(songId, buildChordTrackSelectionCsv());
+            accidentalBySong->setProperty(songId, accidentalSelector.getSelectedId());
+            aliasBySong->setProperty(songId, aliasSelector.getSelectedId());
+
             const int songTranspose = getGlobalTransposeSemitones(true);
             if (songTranspose != 0)
                 transposeOverridesBySong->setProperty(songId, songTranspose);
@@ -1111,22 +1316,26 @@ private:
 
             trackMixBySong->setProperty(songId, buildTrackMixPresetEntries());
         }
+        obj->setProperty("staffTrackSelectionsBySong", juce::var(staffTrackSelectionsBySong.release()));
+        obj->setProperty("chordTrackSelectionBySong", juce::var(chordTrackSelectionBySong.release()));
+        obj->setProperty("accidentalBySong", juce::var(accidentalBySong.release()));
+        obj->setProperty("aliasBySong", juce::var(aliasBySong.release()));
         obj->setProperty("transposeOverridesBySong", juce::var(transposeOverridesBySong.release()));
         obj->setProperty("keyOverridesBySong", juce::var(keyOverridesBySong.release()));
         obj->setProperty("tempoOverridesBySong", juce::var(tempoOverridesBySong.release()));
         obj->setProperty("trackMixBySong", juce::var(trackMixBySong.release()));
 
         const juce::var payload(obj.release());
+        const bool saveOk = file.replaceWithText(juce::JSON::toString(payload));
+        if (saveOk)
+            markCurrentScoreSongSettingsAsSaved();
+        refreshSavePresetButtonDirtyStyle();
         if (showStatusMessage)
         {
-            if (file.replaceWithText(juce::JSON::toString(payload)))
+            if (saveOk)
                 setStatusMessage("Preset saved: " + file.getFullPathName());
             else
                 setStatusMessage("Failed to save preset.");
-        }
-        else
-        {
-            (void) file.replaceWithText(juce::JSON::toString(payload));
         }
     }
 
@@ -1168,9 +1377,24 @@ private:
                 box.setSelectedItemIndex(clamped, juce::dontSendNotification);
         };
 
-        applyTrackSelection(staff1TrackSelector, getIntProperty("staff1Track", 0));
-        applyTrackSelection(staff2TrackSelector, getIntProperty("staff2Track", 0));
-        applyTrackSelection(staff3TrackSelector, getIntProperty("staff3Track", 0));
+        const auto songStaffSelections = getSongStaffTrackSelectionsFromPreset(*obj);
+        if (songStaffSelections.has_value())
+        {
+            applyTrackSelection(staff1TrackSelector, (*songStaffSelections)[0]);
+            applyTrackSelection(staff2TrackSelector, (*songStaffSelections)[1]);
+            applyTrackSelection(staff3TrackSelector, (*songStaffSelections)[2]);
+        }
+        else
+        {
+            const bool hasSongStaffSelectionMap = obj->hasProperty("staffTrackSelectionsBySong")
+                && obj->getProperty("staffTrackSelectionsBySong").getDynamicObject() != nullptr;
+            if (!hasSongStaffSelectionMap)
+            {
+                applyTrackSelection(staff1TrackSelector, getIntProperty("staff1Track", 0));
+                applyTrackSelection(staff2TrackSelector, getIntProperty("staff2Track", 0));
+                applyTrackSelection(staff3TrackSelector, getIntProperty("staff3Track", 0));
+            }
+        }
 
         staff1ClefSelector.setSelectedId(getIntProperty("staff1Clef", 1), juce::dontSendNotification);
         staff2ClefSelector.setSelectedId(getIntProperty("staff2Clef", 1), juce::dontSendNotification);
@@ -1188,12 +1412,50 @@ private:
                 juce::String(hasSongTransposeMap ? 0 : juce::jlimit(-24, 24, getIntProperty("globalTranspose", 0))),
                 juce::dontSendNotification);
         }
-        if (obj->hasProperty("chordTrackSelection"))
-            applyChordTrackSelectionCsv(obj->getProperty("chordTrackSelection").toString());
+        const auto songChordTrackSelection = getSongChordTrackSelectionFromPreset(*obj);
+        if (songChordTrackSelection.has_value())
+        {
+            applyChordTrackSelectionCsv(songChordTrackSelection.value());
+        }
         else
-            applyChordTrackSelectionCsv("0,1,2,3,4");
-        accidentalSelector.setSelectedId(getIntProperty("accidental", 1), juce::dontSendNotification);
-        aliasSelector.setSelectedId(getIntProperty("alias", 1), juce::dontSendNotification);
+        {
+            const bool hasSongChordSelectionMap = obj->hasProperty("chordTrackSelectionBySong")
+                && obj->getProperty("chordTrackSelectionBySong").getDynamicObject() != nullptr;
+            if (!hasSongChordSelectionMap)
+            {
+                if (obj->hasProperty("chordTrackSelection"))
+                    applyChordTrackSelectionCsv(obj->getProperty("chordTrackSelection").toString());
+                else
+                    applyChordTrackSelectionCsv("0,1,2,3,4");
+            }
+        }
+        const auto songAccidentalSelection = getSongAccidentalSelectionFromPreset(*obj);
+        if (songAccidentalSelection.has_value())
+        {
+            accidentalSelector.setSelectedId(songAccidentalSelection.value(), juce::dontSendNotification);
+        }
+        else
+        {
+            const bool hasSongAccidentalMap = obj->hasProperty("accidentalBySong")
+                && obj->getProperty("accidentalBySong").getDynamicObject() != nullptr;
+            accidentalSelector.setSelectedId(
+                hasSongAccidentalMap ? 1 : juce::jlimit(1, 2, getIntProperty("accidental", 1)),
+                juce::dontSendNotification);
+        }
+
+        const auto songAliasSelection = getSongAliasSelectionFromPreset(*obj);
+        if (songAliasSelection.has_value())
+        {
+            aliasSelector.setSelectedId(songAliasSelection.value(), juce::dontSendNotification);
+        }
+        else
+        {
+            const bool hasSongAliasMap = obj->hasProperty("aliasBySong")
+                && obj->getProperty("aliasBySong").getDynamicObject() != nullptr;
+            aliasSelector.setSelectedId(
+                hasSongAliasMap ? 1 : juce::jlimit(1, 2, getIntProperty("alias", 1)),
+                juce::dontSendNotification);
+        }
         scoreColorToggle.setToggleState(getIntProperty("scoreLightMode", 0) != 0, juce::dontSendNotification);
         if (obj->hasProperty("lastMidiDirectory"))
         {
@@ -1239,6 +1501,8 @@ private:
         applyScoreColorScheme();
 
         rebuildAllStaffs();
+        markCurrentScoreSongSettingsAsSaved();
+        refreshSavePresetButtonDirtyStyle();
         if (!silent)
             setStatusMessage("Preset loaded.");
         return true;
@@ -1425,7 +1689,11 @@ private:
             assignDefaultStaffSelections();
             const bool autoPresetLoaded = loadUiPreset(true);
             if (!autoPresetLoaded)
+            {
                 rebuildAllStaffs();
+                markCurrentScoreSongSettingsAsSaved();
+                refreshSavePresetButtonDirtyStyle();
+            }
             setStatusMessage(autoPresetLoaded
                 ? ("Loaded: " + project.file.getFileName() + " (auto preset applied)")
                 : ("Loaded: " + project.file.getFileName()));
@@ -1510,6 +1778,7 @@ private:
             clearStaff(scoreModel2, scoreRenderer2);
             clearStaff(scoreModel3, scoreRenderer3);
             resetLiveChordState();
+            refreshSavePresetButtonDirtyStyle();
             setStatusMessage("Load a MIDI file to begin.");
             return;
         }
@@ -1791,6 +2060,8 @@ private:
     bool continueArmed = false;
     int displayedBar = 1;
     juce::String statusMessageBase;
+    juce::String savedScoreSongKey;
+    std::optional<ScoreSongSettingsSnapshot> savedScoreSongSettingsSnapshot;
     std::optional<double> tempoOverrideBpm;
     std::optional<ParsedKey> keyOverride;
     std::array<std::vector<MidiNoteEvent>, 3> liveChordNotesByStaff;
