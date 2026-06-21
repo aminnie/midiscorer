@@ -7,6 +7,7 @@
 #include "../src/harmony/ChordDetector.h"
 #include "../src/playback/MidiFilePlaybackEngineAdapter.h"
 #include "../src/playback/TrackMixProcessor.h"
+#include "../src/playback/TrackMixMidiSeed.h"
 
 namespace
 {
@@ -342,6 +343,29 @@ void testTrackMixProcessor()
                "Track mix preserves CC91 type");
     expectTrue(scaledCc91.getControllerValue() < cc91.getControllerValue(), "Track mix scales CC91 value");
 }
+
+void testTrackMixMidiSeed()
+{
+    juce::MidiMessageSequence sequence;
+    sequence.addEvent(juce::MidiMessage::noteOn(1, 60, (juce::uint8) 100), 0.0);
+    TrackMixState state;
+
+    TrackMixMidiSeed::applyFromTrackSequences({ sequence }, state);
+    expectTrue(state.getVolume(0) == TrackMixMidiSeed::kDefaultVolume, "Missing CC7 defaults volume to 100");
+    expectTrue(state.getReverb(0) == TrackMixMidiSeed::kDefaultReverb, "Missing CC91 defaults reverb to 10");
+
+    sequence.addEvent(juce::MidiMessage::controllerEvent(1, 7, 80), 1.0);
+    sequence.addEvent(juce::MidiMessage::controllerEvent(1, TrackMixProcessor::kReverbController, 40), 2.0);
+    sequence.addEvent(juce::MidiMessage::controllerEvent(1, 7, 95), 3.0);
+    TrackMixMidiSeed::applyFromTrackSequences({ sequence }, state);
+    expectTrue(state.getVolume(0) == 95, "Track mix seed uses last CC7 value");
+    expectTrue(state.getReverb(0) == 40, "Track mix seed uses last CC91 value");
+
+    state.setVolume(0, 64);
+    state.setReverb(0, 22);
+    expectTrue(state.getVolume(0) == 64, "Saved preset volume remains after manual set");
+    expectTrue(state.getReverb(0) == 22, "Saved preset reverb remains after manual set");
+}
 }
 
 int main()
@@ -357,6 +381,7 @@ int main()
     testWindowClampBehaviorForScoreWindow();
     testMidiPlaybackAdapterSeekAndDispatch();
     testTrackMixProcessor();
+    testTrackMixMidiSeed();
 
     if (failures == 0)
     {

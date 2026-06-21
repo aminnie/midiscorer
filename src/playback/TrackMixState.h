@@ -4,8 +4,8 @@
 
 struct TrackMixSettings
 {
-    int volume = 127;
-    int reverb = 127;
+    int volume = 100;
+    int reverb = 10;
     bool muted = false;
     bool solo = false;
 };
@@ -43,14 +43,14 @@ public:
     int getVolume(int trackIndex) const
     {
         if (!isValidTrack(trackIndex))
-            return 127;
+            return 100;
         return tracks[(size_t) trackIndex].volume;
     }
 
     int getReverb(int trackIndex) const
     {
         if (!isValidTrack(trackIndex))
-            return 127;
+            return 10;
         return tracks[(size_t) trackIndex].reverb;
     }
 

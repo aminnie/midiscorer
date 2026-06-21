@@ -15,6 +15,7 @@
 #include "../playback/MidiOutputDevice.h"
 #include "../playback/TrackMixProcessor.h"
 #include "../playback/TrackMixState.h"
+#include "../playback/TrackMixMidiSeed.h"
 
 class MainComponent final : public juce::Component,
                             private juce::Timer
@@ -1159,7 +1160,8 @@ private:
 
     void applyTrackMixFromPreset(const juce::DynamicObject& preset)
     {
-        trackMixState.resizeForTrackCount(static_cast<int>(project.tracks.size()));
+        initializeTrackMixFromMidi();
+
         const auto songKey = getSongPresetKey();
         if (songKey.isEmpty() || !preset.hasProperty("trackMixBySong"))
             return;
@@ -1208,6 +1210,21 @@ private:
             entries.add(juce::var(entry.release()));
         }
         return juce::var(entries);
+    }
+
+    void initializeTrackMixFromMidi()
+    {
+        if (project.tracks.empty())
+        {
+            trackMixState.resizeForTrackCount(0);
+            return;
+        }
+
+        std::vector<juce::MidiMessageSequence> sequences;
+        sequences.reserve(project.tracks.size());
+        for (const auto& track : project.tracks)
+            sequences.push_back(track.sequence);
+        TrackMixMidiSeed::applyFromTrackSequences(sequences, trackMixState);
     }
 
     void saveUiPreset(bool showStatusMessage = true)
@@ -1692,7 +1709,7 @@ private:
             }
 
             project = std::move(loaded);
-            trackMixState.resizeForTrackCount(static_cast<int>(project.tracks.size()));
+            initializeTrackMixFromMidi();
             updateWindowTitle();
             refreshTrackSelectors();
             refreshChordTrackButtons();
@@ -1909,9 +1926,7 @@ private:
         transportLabel.setText("Bar 1", juce::dontSendNotification);
         displayedBar = 1;
         updateTransportControls();
-        setStatusMessage(tempoOverrideBpm.has_value()
-            ? ("Playback running (tempo override " + formatTempoBpm(tempoOverrideBpm.value()) + ").")
-            : juce::String("Playback running (tempo mapped from MIDI)."));
+        setStatusMessage("Playback running");
     }
 
     void continuePlaybackFromBar()
@@ -1933,7 +1948,7 @@ private:
         transportLabel.setText("Bar " + juce::String(clampedBar), juce::dontSendNotification);
         displayedBar = clampedBar;
         updateTransportControls();
-        setStatusMessage("Playback continuing from bar " + juce::String(clampedBar) + ".");
+        setStatusMessage("Playback continuing from bar " + juce::String(clampedBar));
     }
 
     void stopPlayback(bool userInitiated)
@@ -1949,6 +1964,8 @@ private:
         midiOutputDevice.sendAllNotesOff();
         continueArmed = userInitiated && !project.tracks.empty();
         updateTransportControls();
+        if (userInitiated)
+            setStatusMessage("Playback stopped");
     }
 
     void onTransportToggleClicked()
@@ -1991,28 +2008,37 @@ private:
         continueBarInput.setEnabled(hasProject && !isPlaying && continueArmed);
     }
 
-    juce::String buildMidiMetaText() const
+    juce::String buildSignatureText() const
     {
         if (project.tracks.empty())
-            return "Sig: n/a  Tempo: n/a";
+            return "Sig: n/a";
 
         const auto& sigs = project.tempoMap.getTimeSignatureEvents();
+        if (sigs.empty())
+            return "Sig: n/a";
+
+        return "Sig: " + juce::String(sigs.front().numerator) + "/" + juce::String(sigs.front().denominator);
+    }
+
+    juce::String buildTempoMetaText() const
+    {
+        if (project.tracks.empty())
+            return "Tempo: n/a";
+
         const auto& tempos = project.tempoMap.getTempoEvents();
+        if (tempos.empty())
+            return "Tempo: n/a";
 
-        juce::String signatureText = "n/a";
-        if (!sigs.empty())
-            signatureText = juce::String(sigs.front().numerator) + "/" + juce::String(sigs.front().denominator);
+        const double detectedBpm = tempos.front().bpm;
+        juce::String tempoText = formatTempoBpm(detectedBpm);
+        if (tempoOverrideBpm.has_value())
+            tempoText = formatTempoBpm(tempoOverrideBpm.value()) + " (detected " + formatTempoBpm(detectedBpm) + ")";
+        return "Tempo: " + tempoText;
+    }
 
-        juce::String tempoText = "n/a";
-        if (!tempos.empty())
-        {
-            const double detectedBpm = tempos.front().bpm;
-            tempoText = formatTempoBpm(detectedBpm);
-            if (tempoOverrideBpm.has_value())
-                tempoText = formatTempoBpm(tempoOverrideBpm.value()) + " (detected " + formatTempoBpm(detectedBpm) + ")";
-        }
-
-        return "Sig: " + signatureText + "  Tempo: " + tempoText;
+    juce::String buildMidiMetaText() const
+    {
+        return buildSignatureText() + "  " + buildTempoMetaText();
     }
 
     juce::String buildStatusDetailsText() const
@@ -2020,7 +2046,7 @@ private:
         const auto keyText = keyOverride.has_value()
             ? ("KeySrc: override (" + keyOverride->displayText + ")")
             : ("KeySrc: detected (" + project.getKeyDisplayText() + ")");
-        return buildMidiMetaText() + "  | " + keyText;
+        return buildTempoMetaText() + "  | " + keyText;
     }
 
     juce::String buildBarText() const
@@ -2039,7 +2065,8 @@ private:
     void refreshStatusMessage()
     {
         const auto prefix = statusMessageBase.isNotEmpty() ? statusMessageBase : juce::String("Ready");
-        statusLabel.setText(buildBarText() + "  | " + prefix + "  | " + buildStatusDetailsText(), juce::dontSendNotification);
+        statusLabel.setText(buildSignatureText() + "  | " + buildBarText() + "  | " + prefix + "  | " + buildStatusDetailsText(),
+                            juce::dontSendNotification);
     }
 
     juce::Label titleLabel;

@@ -65,6 +65,7 @@ target_sources(MidiScorer
         src/playback/MidiOutputDevice.h
         src/playback/TrackMixState.h
         src/playback/TrackMixProcessor.h
+        src/playback/TrackMixMidiSeed.h
 )
 
 target_include_directories(MidiScorer
@@ -111,6 +112,7 @@ target_sources(MidiScorerTests
         src/harmony/ChordDetector.h
         src/playback/TrackMixState.h
         src/playback/TrackMixProcessor.h
+        src/playback/TrackMixMidiSeed.h
 )
 
 target_include_directories(MidiScorerTests
