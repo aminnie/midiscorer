@@ -941,6 +941,40 @@ private:
         return overridesObj->getProperty(songId).toString().trim();
     }
 
+    std::optional<int> getSongTransposeOverrideFromPreset(const juce::DynamicObject& preset) const
+    {
+        const auto songKey = getSongPresetKey();
+        if (songKey.isEmpty() || !preset.hasProperty("transposeOverridesBySong"))
+            return std::nullopt;
+
+        auto* overridesObj = preset.getProperty("transposeOverridesBySong").getDynamicObject();
+        if (overridesObj == nullptr)
+            return std::nullopt;
+
+        const juce::Identifier songId(songKey);
+        if (!overridesObj->hasProperty(songId))
+            return std::nullopt;
+
+        return juce::jlimit(-24, 24, static_cast<int>(overridesObj->getProperty(songId)));
+    }
+
+    std::optional<juce::String> getSongKeyOverrideTextFromPreset(const juce::DynamicObject& preset) const
+    {
+        const auto songKey = getSongPresetKey();
+        if (songKey.isEmpty() || !preset.hasProperty("keyOverridesBySong"))
+            return std::nullopt;
+
+        auto* overridesObj = preset.getProperty("keyOverridesBySong").getDynamicObject();
+        if (overridesObj == nullptr)
+            return std::nullopt;
+
+        const juce::Identifier songId(songKey);
+        if (!overridesObj->hasProperty(songId))
+            return std::nullopt;
+
+        return overridesObj->getProperty(songId).toString().trim();
+    }
+
     void applyTrackMixFromPreset(const juce::DynamicObject& preset)
     {
         trackMixState.resizeForTrackCount(static_cast<int>(project.tracks.size()));
@@ -1000,18 +1034,17 @@ private:
         obj->setProperty("staff1Clef", staff1ClefSelector.getSelectedId());
         obj->setProperty("staff2Clef", staff2ClefSelector.getSelectedId());
         obj->setProperty("staff3Clef", staff3ClefSelector.getSelectedId());
-        obj->setProperty("globalTranspose", getGlobalTransposeSemitones(true));
         obj->setProperty("chordTrackSelection", buildChordTrackSelectionCsv());
         obj->setProperty("accidental", accidentalSelector.getSelectedId());
         obj->setProperty("alias", aliasSelector.getSelectedId());
         obj->setProperty("scoreLightMode", scoreColorToggle.getToggleState());
-        obj->setProperty("keyOverrideEnabled", keyOverride.has_value());
-        obj->setProperty("keyOverrideText", keyOverride.has_value() ? keyOverride->displayText : juce::String());
         obj->setProperty("tempoOverrideEnabled", tempoOverrideBpm.has_value());
         obj->setProperty("tempoOverrideText", tempoOverrideInput.getText().trim());
         if (lastMidiDirectory.isDirectory())
             obj->setProperty("lastMidiDirectory", lastMidiDirectory.getFullPathName());
 
+        auto transposeOverridesBySong = std::make_unique<juce::DynamicObject>();
+        auto keyOverridesBySong = std::make_unique<juce::DynamicObject>();
         auto tempoOverridesBySong = std::make_unique<juce::DynamicObject>();
         auto trackMixBySong = std::make_unique<juce::DynamicObject>();
         const auto file = getPresetFilePath();
@@ -1024,6 +1057,20 @@ private:
             {
                 if (auto* existingObj = existingParsed.getDynamicObject())
                 {
+                    const auto existingTransposeVar = existingObj->getProperty("transposeOverridesBySong");
+                    if (auto* existingTransposeObj = existingTransposeVar.getDynamicObject())
+                    {
+                        for (const auto& prop : existingTransposeObj->getProperties())
+                            transposeOverridesBySong->setProperty(prop.name, prop.value);
+                    }
+
+                    const auto existingKeyVar = existingObj->getProperty("keyOverridesBySong");
+                    if (auto* existingKeyObj = existingKeyVar.getDynamicObject())
+                    {
+                        for (const auto& prop : existingKeyObj->getProperties())
+                            keyOverridesBySong->setProperty(prop.name, prop.value);
+                    }
+
                     const auto existingOverridesVar = existingObj->getProperty("tempoOverridesBySong");
                     if (auto* existingOverridesObj = existingOverridesVar.getDynamicObject())
                     {
@@ -1045,6 +1092,17 @@ private:
         if (songKey.isNotEmpty())
         {
             const juce::Identifier songId(songKey);
+            const int songTranspose = getGlobalTransposeSemitones(true);
+            if (songTranspose != 0)
+                transposeOverridesBySong->setProperty(songId, songTranspose);
+            else
+                transposeOverridesBySong->removeProperty(songId);
+
+            if (keyOverride.has_value())
+                keyOverridesBySong->setProperty(songId, keyOverride->displayText);
+            else
+                keyOverridesBySong->removeProperty(songId);
+
             const auto songTempoText = tempoOverrideInput.getText().trim();
             if (songTempoText.isNotEmpty())
                 tempoOverridesBySong->setProperty(songId, songTempoText);
@@ -1053,6 +1111,8 @@ private:
 
             trackMixBySong->setProperty(songId, buildTrackMixPresetEntries());
         }
+        obj->setProperty("transposeOverridesBySong", juce::var(transposeOverridesBySong.release()));
+        obj->setProperty("keyOverridesBySong", juce::var(keyOverridesBySong.release()));
         obj->setProperty("tempoOverridesBySong", juce::var(tempoOverridesBySong.release()));
         obj->setProperty("trackMixBySong", juce::var(trackMixBySong.release()));
 
@@ -1115,7 +1175,19 @@ private:
         staff1ClefSelector.setSelectedId(getIntProperty("staff1Clef", 1), juce::dontSendNotification);
         staff2ClefSelector.setSelectedId(getIntProperty("staff2Clef", 1), juce::dontSendNotification);
         staff3ClefSelector.setSelectedId(getIntProperty("staff3Clef", 1), juce::dontSendNotification);
-        globalTransposeInput.setText(juce::String(juce::jlimit(-24, 24, getIntProperty("globalTranspose", 0))), juce::dontSendNotification);
+        const auto songTransposeOverride = getSongTransposeOverrideFromPreset(*obj);
+        if (songTransposeOverride.has_value())
+        {
+            globalTransposeInput.setText(juce::String(songTransposeOverride.value()), juce::dontSendNotification);
+        }
+        else
+        {
+            const bool hasSongTransposeMap = obj->hasProperty("transposeOverridesBySong")
+                && obj->getProperty("transposeOverridesBySong").getDynamicObject() != nullptr;
+            globalTransposeInput.setText(
+                juce::String(hasSongTransposeMap ? 0 : juce::jlimit(-24, 24, getIntProperty("globalTranspose", 0))),
+                juce::dontSendNotification);
+        }
         if (obj->hasProperty("chordTrackSelection"))
             applyChordTrackSelectionCsv(obj->getProperty("chordTrackSelection").toString());
         else
@@ -1129,11 +1201,26 @@ private:
             if (candidate.isDirectory())
                 lastMidiDirectory = candidate;
         }
-        const bool keyOverrideEnabled = getIntProperty("keyOverrideEnabled", 0) != 0;
-        if (keyOverrideEnabled && obj->hasProperty("keyOverrideText"))
-            keyOverrideInput.setText(obj->getProperty("keyOverrideText").toString(), juce::dontSendNotification);
+        const auto songKeyOverrideText = getSongKeyOverrideTextFromPreset(*obj);
+        if (songKeyOverrideText.has_value() && songKeyOverrideText->isNotEmpty())
+            keyOverrideInput.setText(songKeyOverrideText.value(), juce::dontSendNotification);
         else
-            keyOverrideInput.setText({}, juce::dontSendNotification);
+        {
+            const bool hasSongKeyMap = obj->hasProperty("keyOverridesBySong")
+                && obj->getProperty("keyOverridesBySong").getDynamicObject() != nullptr;
+            if (!hasSongKeyMap)
+            {
+                const bool keyOverrideEnabled = getIntProperty("keyOverrideEnabled", 0) != 0;
+                if (keyOverrideEnabled && obj->hasProperty("keyOverrideText"))
+                    keyOverrideInput.setText(obj->getProperty("keyOverrideText").toString(), juce::dontSendNotification);
+                else
+                    keyOverrideInput.setText({}, juce::dontSendNotification);
+            }
+            else
+            {
+                keyOverrideInput.setText({}, juce::dontSendNotification);
+            }
+        }
         applyKeyOverrideFromInput(false);
 
         const auto songTempoOverride = getSongTempoOverrideFromPreset(*obj);

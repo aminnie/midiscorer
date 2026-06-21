@@ -43,6 +43,10 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
   - per eligible MIDI track controls for volume (0..127), mute, and solo
   - grouped controls by track name in the `Effects` tab
   - per-song track mix persistence in `Documents/MidiScorer/ui_preset.json` under `trackMixBySong`
+- Per-song score overrides:
+  - transpose is persisted per loaded MIDI song in `ui_preset.json` under `transposeOverridesBySong`
+  - key override is persisted per loaded MIDI song in `ui_preset.json` under `keyOverridesBySong`
+  - tempo override remains per loaded MIDI song under `tempoOverridesBySong`
 - Display options:
   - `Light Score` / dark score toggle (Light Score is default)
   - status line includes Sig, Tempo, Key, and Bar
@@ -113,7 +117,8 @@ ctest --test-dir build -C Debug --output-on-failure
    - use `Drum` clef for percussion tracks
 5. Choose harmonic source tracks using **Chord Tracks** checkboxes.
 6. Optionally adjust:
-   - global transpose
+   - transpose
+   - key override
    - chord naming options
    - score color mode
 7. Use **Score** tab to view/edit notation options and track assignments.
