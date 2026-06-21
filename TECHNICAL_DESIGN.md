@@ -23,9 +23,9 @@ Core modules:
 - `src/notation/ScoreModel.h` - score-domain symbols (notes, rests, ties, chords)
 - `src/notation/ScoreRenderer.h` - drawing engine for staff notation
 - `src/harmony/ChordDetector.h` - chord-template detection and naming
-- `src/app/AppTabsHost.h` - top-level tab host (`Player`, `Score`, `Effects`)
+- `src/app/AppTabsHost.h` - top-level tab host (`Start`, `Score`, `Effects`)
 - `src/app/MainComponent.h` - score-page orchestration, UI state, playback sync
-- `src/app/PlayerTabComponent.h` - player-page transport and MIDI output UI
+- `src/app/PlayerTabComponent.h` - player-page MIDI output UI
 - `src/app/TracksTabComponent.h` - per-track mix UI (mute/solo/volume/reverb)
 - `src/playback/IPlaybackPositionSource.h` - transport position abstraction
 - `src/playback/MidiFilePlaybackEngineAdapter.h` - scheduled MIDI event engine adapter
@@ -56,7 +56,7 @@ The player path is intentionally loosely coupled:
 - `PlaybackController` implements `IPlaybackPositionSource` and remains the single timing authority used by score rendering and live chord windows.
 - `MidiFilePlaybackEngineAdapter` loads MIDI message events from file and emits events up to a caller-provided playback time.
 - `MainComponent::timerCallback()` bridges the two by passing `getElapsedSeconds()` into the adapter and routing emitted messages through `MidiOutputDevice`.
-- `PlayerTabComponent` controls transport and output selection without embedding scoring logic.
+- `PlayerTabComponent` exposes MIDI output selection; playback transport lives on the Score tab.
 
 This keeps the scorer and player separable for future reuse in a tabbed host such as AMidiOrganOrg.
 

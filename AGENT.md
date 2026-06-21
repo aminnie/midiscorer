@@ -30,7 +30,7 @@ Use these modules as the source of truth for each concern:
 - `src/playback/TrackMixMidiSeed.h` - CC7/CC91 seeding on load
 - `src/app/MainComponent.h` - orchestration/UI wiring (Score tab)
 - `src/app/TracksTabComponent.h` - Effects tab mix UI
-- `src/app/AppTabsHost.h` - tab host (`Player`, `Score`, `Effects`)
+- `src/app/AppTabsHost.h` - tab host (`Start`, `Score`, `Effects`)
 
 ## Guardrails
 

@@ -31,8 +31,8 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
 - Playback controls:
   - `Play`, `Stop`, `Continue`, and bar start input
   - on `Stop`, continue bar auto-fills with current bar
-- Tabbed workspace (tab order: **Player**, **Score**, **Effects**):
-  - `Player` tab for transport controls and MIDI output selection
+- Tabbed workspace (tab order: **Start**, **Score**, **Effects**):
+  - `Start` tab for MIDI output device selection (transport controls are on the Score tab)
   - `Score` tab for notation/chord controls and renderers
   - `Effects` tab for per-track mix controls
 - MIDI player and output:
@@ -65,9 +65,9 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
 
 - `CMakeLists.txt` - JUCE/CMake project setup
 - `Main.cpp` - JUCE application entry point
-- `src/app/AppTabsHost.h` - top-level tab container (`Player` + `Score` + `Effects`)
+- `src/app/AppTabsHost.h` - top-level tab container (`Start` + `Score` + `Effects`)
 - `src/app/MainComponent.h` - score page UI controls, notation orchestration, playback sync
-- `src/app/PlayerTabComponent.h` - player page transport and MIDI output controls
+- `src/app/PlayerTabComponent.h` - player page MIDI output selection
 - `src/app/TracksTabComponent.h` - Effects tab (per-track Mute/Solo/Volume/Reverb)
 - `src/midi/TempoMap.h` - tempo/time-signature/bar conversion
 - `src/midi/TrackNoteExtractor.h` - note-on/note-off pairing
@@ -128,9 +128,9 @@ ctest --test-dir build -C Debug --output-on-failure
    - chord naming options
    - score color mode
 7. Use **Score** tab to view/edit notation options and track assignments.
-8. Use **Player** tab to select an output device, then Play/Pause/Stop.
-9. Use **Effects** tab to adjust per-track Mute, Solo, Volume, and Reverb.
-10. Use **Seek** or **Play From Bar** in the Player tab to scrub/start from a specific bar.
+8. Use **Start** tab to select a MIDI output device.
+9. Use **Score** tab **Start/Stop**, **Continue**, and **Bar** for playback transport.
+10. Use **Effects** tab to adjust per-track Mute, Solo, Volume, and Reverb.
 
 ## Notes and known limitations
 

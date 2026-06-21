@@ -111,7 +111,7 @@ This checklist tracks code-review findings and implementation work items.
 - [x] Score tab status and preset UX refinements.
   - Files: `src/app/MainComponent.h`, `src/app/AppTabsHost.h`
   - Acceptance:
-    - Tab order is Player → Score → Effects.
+    - Tab order is Start → Score → Effects.
     - Status line shows Sig before Bar; KeySrc indicates detected vs override key source.
     - Save Preset highlights red when score song settings are dirty.
     - Playback status messages: running/stopped/continuing without tempo-override suffix noise.
