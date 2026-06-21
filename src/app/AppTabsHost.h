@@ -14,9 +14,10 @@ public:
           tracksTab(scoreTab)
     {
         addAndMakeVisible(tabs);
-        tabs.addTab("Score", juce::Colour(0xff1f2a36), &scoreTab, false);
-        tabs.addTab("Player", juce::Colour(0xff20303a), &playerTab, false);
-        tabs.addTab("Effects", juce::Colour(0xff2a263a), &tracksTab, false);
+        const auto defaultTabColour = findColour(juce::ResizableWindow::backgroundColourId);
+        tabs.addTab("Score", defaultTabColour, &scoreTab, false);
+        tabs.addTab("Player", defaultTabColour, &playerTab, false);
+        tabs.addTab("Effects", defaultTabColour, &tracksTab, false);
         setSize(1280, 720);
     }
 
