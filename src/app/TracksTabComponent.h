@@ -135,7 +135,7 @@ private:
             row->trackIndex = i;
 
             row->group = std::make_unique<juce::GroupComponent>();
-            row->group->setText(scorePage.getTrackDisplayName(i));
+            row->group->setText(juce::String(i + 1).paddedLeft('0', 2) + ": " + scorePage.getTrackDisplayName(i));
             content.addAndMakeVisible(*row->group);
 
             row->volumeLabel = std::make_unique<juce::Label>();
@@ -147,6 +147,9 @@ private:
             row->volumeSlider->setRange(0.0, 127.0, 1.0);
             row->volumeSlider->setSliderStyle(juce::Slider::LinearHorizontal);
             row->volumeSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 56, 22);
+            row->volumeSlider->setColour(juce::Slider::backgroundColourId, juce::Colours::dimgrey);
+            row->volumeSlider->setColour(juce::Slider::trackColourId, juce::Colours::green.darker());
+            row->volumeSlider->setColour(juce::Slider::thumbColourId, juce::Colours::darkred.brighter());
             row->volumeSlider->setValue(scorePage.getTrackMixVolume(i), juce::dontSendNotification);
             row->volumeSlider->onValueChange = [this, idx = i, slider = row->volumeSlider.get()]
             {
