@@ -18,7 +18,7 @@ Primary user goals are notation readability, deterministic chord behavior, and f
 Use these modules as the source of truth for each concern:
 
 - `src/midi/TempoMap.h` - timing/bar math conversions
-- `src/midi/MidiProjectLoader.h` - MIDI ingest + metadata extraction
+- `src/midi/MidiProjectLoader.h` - MIDI ingest, SMF type/SMPTE validation, metadata extraction
 - `src/midi/TrackNoteExtractor.h` - note-on/off pairing
 - `src/notation/Quantizer.h` - note duration/start quantization
 - `src/notation/ScoreModel.h` - score-domain symbols (notes, rests, ties, chords)
@@ -39,6 +39,7 @@ Use these modules as the source of truth for each concern:
 - Keep bar/time conversions in `TempoMap`.
 - Keep UI state and rebuild triggers in `MainComponent`.
 - Preserve existing drum exceptions (drum clef / channel 10 should not be transposed).
+- Keep SMF type **0** rejection and the type **1** conversion modal message in `MidiProjectLoader` / `MainComponent` unless requirements change explicitly.
 
 ## Preferred change style
 
@@ -73,6 +74,7 @@ Typical agent loop after code changes:
 - Chord track checkbox mapping to source track indices
 - Renderer first-visible-bar clef/key-signature spacing
 - Track mix MIDI seeding vs saved `trackMixBySong` preset precedence (Chan, volume, reverb)
+- SMF type **0** load rejection and warning-modal messaging
 - Save Preset dirty-state styling and score song-settings snapshot comparison
 
 ## Existing technical references

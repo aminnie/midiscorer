@@ -40,6 +40,7 @@ Recent feature areas to keep isolated in PRs:
 
 For changes in:
 
+- `src/midi/MidiProjectLoader.h`: add/adjust type **0**, SMPTE, and ingest validation tests.
 - `src/midi/TempoMap.h`: add/adjust deterministic timing tests.
 - `src/notation/Quantizer.h`: add quantization behavior checks.
 - `src/notation/ScoreModel.h`: add or adjust gap/rest insertion behavior checks.
@@ -53,7 +54,8 @@ At minimum before submitting:
 1. Build app and tests successfully.
 2. Run `ctest` with zero failures.
 3. Smoke test in app:
-   - load MIDI
+   - load a type **1** MIDI file
+   - verify a type **0** MIDI file shows the conversion warning modal and does not load
    - verify auto-preset load behavior
    - switch staff tracks and clefs
    - toggle chord-track checkboxes

@@ -16,7 +16,7 @@ MidiScorer is a JUCE desktop app that loads a MIDI file, builds timing/key metad
 
 Core modules:
 
-- `src/midi/MidiProjectLoader.h` - MIDI ingestion and metadata extraction
+- `src/midi/MidiProjectLoader.h` - MIDI ingestion, SMF type/SMPTE validation, metadata extraction
 - `src/midi/TempoMap.h` - tick/quarter/second/bar conversion
 - `src/midi/TrackNoteExtractor.h` - note-on/off pairing into note events
 - `src/notation/Quantizer.h` - rhythmic quantization
@@ -32,12 +32,12 @@ Core modules:
 - `src/playback/MidiOutputDevice.h` - single MIDI output device abstraction
 - `src/playback/TrackMixState.h` - per-track mix state container
 - `src/playback/TrackMixProcessor.h` - per-track playback filtering/scaling/merge
-- `src/playback/TrackMixMidiSeed.h` - initialize mix from per-track CC7/CC91 on load
+- `src/playback/TrackMixMidiSeed.h` - initialize mix from per-track channel/CC7/CC91 on load
 
 ## 2) End-to-end data flow
 
 1. `MainComponent::loadMidiFile()` opens a JUCE file chooser and loads a MIDI file.
-2. `MidiProjectLoader::load()` reads tracks, tempo/time signatures, key signature, and note events.
+2. `MidiProjectLoader::load()` validates the Standard MIDI File header, then reads tracks, tempo/time signatures, key signature, and note events.
 3. `TempoMap` is built and becomes the canonical timing conversion layer.
 4. For each visible staff, `MainComponent::rebuildStaff()`:
    - selects source track
@@ -47,7 +47,17 @@ Core modules:
    - builds score bars via `ScoreModel::build()`
 5. `ScoreRenderer` paints rolling 5-bar windows centered on current playback bar.
 6. During playback, `timerCallback()` updates current bar/live chord markers and dispatches scheduled MIDI events to the selected output device.
-7. Before dispatch, each event is filtered/scaled by track mix state (mute/solo gate + volume scaling).
+7. Before dispatch, each event is filtered/scaled/remapped by track mix state (mute/solo gate, channel remap, volume/reverb scaling).
+
+## 2.0) MIDI file requirements
+
+`MidiProjectLoader` enforces ingest rules immediately after `juce::MidiFile::readFrom(..., &midiFileType)`:
+
+- **Type 0 rejected** — SMF type **0** (single merged track) returns `false`, sets `rejectedType0`, and uses `getType0NotSupportedMessage()` so the UI can show a conversion modal. MidiScorer expects type **1** files with separate tracks per part.
+- **SMPTE/non-PPQ rejected** — negative or zero PPQ time format returns an error before tempo-map construction.
+- **Type 1 accepted** — normal multi-track ingest continues into tempo-map and per-track note extraction.
+
+`MainComponent::loadMidiFile()` branches on `rejectedType0` to call `showWarningModal(...)` instead of only updating the status line.
 
 ## 2.1) Playback and output architecture
 

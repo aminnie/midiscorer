@@ -8,7 +8,9 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
 
 ## Current capabilities
 
-- Load `.mid` / `.midi` files.
+- Load `.mid` / `.midi` files (Standard MIDI File **type 1** required).
+  - type **0** files (single-track) are rejected with a warning modal asking you to convert the file in a MIDI editor
+  - SMPTE/non-PPQ timing is also rejected
 - Auto-load last saved UI preset when a MIDI file is loaded (if present).
 - Display up to three independent staffs:
   - per-staff track selection
@@ -30,9 +32,9 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
   - live chord marker recomputed on 1/8-note boundaries, shown only when chord changes
 - Chord source selection:
   - dynamic per-track checkbox list (`Chord Tracks`) used for harmonic analysis
-- Playback controls:
-  - `Play`, `Stop`, `Continue`, and bar start input
-  - on `Stop`, continue bar auto-fills with current bar
+- Playback controls (Score tab):
+  - **Start/Stop**, **Continue**, and bar start input
+  - on **Stop**, continue bar auto-fills with current bar
 - Tabbed workspace (tab order: **Start**, **Score**, **Effects**):
   - `Start` tab for MIDI output device selection (transport controls are on the Score tab)
   - `Score` tab for notation/chord controls and renderers
@@ -75,7 +77,7 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
 - `src/app/TracksTabComponent.h` - Effects tab (per-track Chan/Mute/Solo/Volume/Reverb)
 - `src/midi/TempoMap.h` - tempo/time-signature/bar conversion
 - `src/midi/TrackNoteExtractor.h` - note-on/note-off pairing
-- `src/midi/MidiProjectLoader.h` - MIDI ingestion and metadata extraction
+- `src/midi/MidiProjectLoader.h` - MIDI ingestion, SMF type validation, and metadata extraction
 - `src/notation/Quantizer.h` - rhythmic quantization
 - `src/notation/ScoreModel.h` - score bars/notes/chords/rest insertion
 - `src/notation/ScoreRenderer.h` - score drawing and live chord marker rendering
@@ -108,7 +110,8 @@ Requirements: CMake 3.22+, C++17, and a JUCE source checkout (details in `build.
 ## How to use
 
 1. Launch `MidiScorer`.
-2. Click **Load MIDI** and choose a MIDI file.
+2. Click **Load MIDI** and choose a type **1** MIDI file.
+   - if the file is type **0**, a modal explains how to convert it in a MIDI editor
 3. Optionally let auto-preset apply, or use **Load Preset** manually.
 4. Configure Staff 1/2/3 track and clef.
    - use `Drum` clef for percussion tracks
@@ -126,7 +129,8 @@ Requirements: CMake 3.22+, C++17, and a JUCE source checkout (details in `build.
 
 ## Notes and known limitations
 
-- Rendering is intentionally simplified (single-voice approximation per staff).
+- Only Standard MIDI File **type 1** (multi-track) files are supported; type **0** is rejected on load.
+- SMPTE/non-PPQ MIDI timing is not supported.
 - Quantization is limited to 1/16 through whole-note values.
 - Rests, beaming, and accidental handling are practical approximations, not full engraving rules.
 - Chord detection uses deterministic template scoring and may be ambiguous for dense voicings.
@@ -142,6 +146,8 @@ Requirements: CMake 3.22+, C++17, and a JUCE source checkout (details in `build.
 
 - `MIDI ingest pipeline`
   - Entry point is `MidiProjectLoader::load()` in `src/midi/MidiProjectLoader.h`.
+  - Rejects SMF type **0** and SMPTE/non-PPQ files before building the project model.
+  - Type **0** rejection surfaces a warning modal from `MainComponent::loadMidiFile()`.
 - `Tempo/bar math`
   - `src/midi/TempoMap.h` is the authoritative timing layer.
 - `Chord detection`
@@ -161,5 +167,6 @@ Requirements: CMake 3.22+, C++17, and a JUCE source checkout (details in `build.
 3. Smoke test:
    - load MIDI
    - verify staff selectors and chord track checkboxes
-   - verify Play/Stop/Continue behavior
+   - verify Start/Stop/Continue behavior
+   - verify type **0** MIDI shows the conversion warning modal
    - verify live chord marker updates on playback

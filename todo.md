@@ -122,3 +122,9 @@ This checklist tracks code-review findings and implementation work items.
     - Chan seeds from the track's first MIDI channel on load (default 1); saved `trackMixBySong` overrides.
     - Chan edits auto-save to the profile and remap outgoing playback events.
     - Use Chan changes if you need to reorganize channels in order to play along with the score and MIDI file while playing an instrument that shares the selected MIDI module.
+- [x] Reject Standard MIDI File type **0** on load with a conversion modal.
+  - Files: `src/midi/MidiProjectLoader.h`, `src/app/MainComponent.h`, `tests/test_main.cpp`
+  - Acceptance:
+    - Loader detects SMF type from the file header and rejects type **0**.
+    - UI shows a warning modal asking the user to save/export as type **1** in a MIDI editor.
+    - SMPTE rejection tests remain valid with a type **1** fixture header.
