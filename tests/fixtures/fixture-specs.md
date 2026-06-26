@@ -18,6 +18,7 @@
 - Related tests:
   - `testQuantizer()`
   - `testScoreModelNormalizesChordQuarterInBar()`
+  - `testSyncopatedDurationsFixtureBehavior()` via `syncopated_durations.mid`
 
 ## 3) altered-chords
 - Harmonic windows including: Cmaj9, G7b9, D7#9, F13
@@ -26,6 +27,7 @@
   - `testChordDetector()`
   - `testChordDetectorResetsAcrossSilence()`
   - `testScoreModelNormalizesChordQuarterInBar()`
+  - `testAlteredChordsFixtureBehavior()` via `altered_chords.mid`
 
 ## 4) ties-across-bars
 - Sustained notes crossing bar boundaries

@@ -215,11 +215,11 @@ This checklist tracks code-review findings and implementation work items.
   - Files: `src/app/MainComponent.h`
   - Acceptance:
     - Clef and score color edits correctly trigger Save Preset dirty style.
-- [ ] **P3 / M** Add startup resume workflow (optional reopen last MIDI/recent path).
+- [x] **P3 / M** Add startup resume workflow (optional reopen last MIDI/recent path).
   - Files: `src/app/MainComponent.h`, `Main.cpp`
   - Acceptance:
     - User can opt in to reopening recent/last MIDI on startup.
-- [ ] **P3 / M** Add missing checked-in fixtures for syncopation and altered-chord scenarios plus assertions.
+- [x] **P3 / M** Add missing checked-in fixtures for syncopation and altered-chord scenarios plus assertions.
   - Files: `tests/fixtures/`, `tests/fixtures/fixture-specs.md`, `tests/test_main.cpp`
   - Acceptance:
     - Fixture specs for syncopation/altered chords are represented by checked-in files and tests.

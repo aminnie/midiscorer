@@ -11,6 +11,7 @@
 #include "../src/playback/TrackMixMidiSeed.h"
 #include "TestFixturePaths.h"
 #include <iostream>
+#include <set>
 
 namespace
 {
@@ -584,11 +585,90 @@ void testTiesSyncopationFixtureBehavior()
     expectTrue(foundTieIntoNextBar, "ties_syncopation fixture produces a score tie into the next bar");
 }
 
+void testSyncopatedDurationsFixtureBehavior()
+{
+    const auto fixture = getTestFixtureFile("syncopated_durations.mid");
+    expectTrue(fixture.existsAsFile(), "Fixture syncopated_durations.mid is checked in");
+
+    MidiProjectLoader loader;
+    MidiProjectData project;
+    juce::String error;
+    const bool loaded = loader.load(fixture, project, error);
+    expectTrue(loaded, "Loader can parse syncopated_durations fixture");
+    if (!loaded)
+        return;
+
+    expectTrue(!project.tracks.empty(), "syncopated_durations fixture yields at least one track");
+    const auto quantized = Quantizer::quantizeTrack(project.tracks.front().notes, project.tempoMap);
+    expectTrue(!quantized.empty(), "syncopated_durations fixture yields quantized notes");
+
+    std::set<NoteValue> values;
+    bool hasOffbeatStart = false;
+    for (const auto& note : quantized)
+    {
+        values.insert(note.value);
+        const double fractional = note.startQuarter - std::floor(note.startQuarter);
+        if (std::abs(fractional - 0.25) < 1.0e-6 || std::abs(fractional - 0.75) < 1.0e-6)
+            hasOffbeatStart = true;
+    }
+
+    expectTrue(values.count(NoteValue::sixteenth) > 0, "syncopated_durations fixture quantizes a sixteenth");
+    expectTrue(values.count(NoteValue::eighth) > 0, "syncopated_durations fixture quantizes an eighth");
+    expectTrue(values.count(NoteValue::quarter) > 0, "syncopated_durations fixture quantizes a quarter");
+    expectTrue(values.count(NoteValue::half) > 0, "syncopated_durations fixture quantizes a half note");
+    expectTrue(values.count(NoteValue::whole) > 0, "syncopated_durations fixture quantizes a whole note");
+    expectTrue(hasOffbeatStart, "syncopated_durations fixture preserves off-beat sixteenth-grid starts");
+}
+
+void testAlteredChordsFixtureBehavior()
+{
+    const auto fixture = getTestFixtureFile("altered_chords.mid");
+    expectTrue(fixture.existsAsFile(), "Fixture altered_chords.mid is checked in");
+
+    MidiProjectLoader loader;
+    MidiProjectData project;
+    juce::String error;
+    const bool loaded = loader.load(fixture, project, error);
+    expectTrue(loaded, "Loader can parse altered_chords fixture");
+    if (!loaded)
+        return;
+
+    expectTrue(!project.tracks.empty(), "altered_chords fixture yields at least one track");
+
+    const auto& notes = project.tracks.front().notes;
+    ChordDetector::NamingOptions options;
+    options.accidentalPreference = ChordDetector::AccidentalPreference::preferFlats;
+    options.jazzAliasStyle = ChordDetector::JazzAliasStyle::jazzSymbols;
+    const auto chords = ChordDetector::detect(notes, project.tempoMap, project.maxBar, options);
+    expectTrue(chords.size() >= 4, "altered_chords fixture yields multiple chord windows");
+
+    auto containsSymbol = [&](const juce::String& fragment)
+    {
+        for (const auto& chord : chords)
+        {
+            if (chord.symbol.containsIgnoreCase(fragment))
+                return true;
+        }
+        return false;
+    };
+
+    expectTrue(containsSymbol("maj9") || containsSymbol("^9") || containsSymbol("9"),
+               "altered_chords fixture detects Cmaj9 family harmony");
+    expectTrue(containsSymbol("7b9") || containsSymbol("-9") || containsSymbol("b9"),
+               "altered_chords fixture detects G7b9 family harmony");
+    expectTrue(containsSymbol("7#9") || containsSymbol("#9"),
+               "altered_chords fixture detects D7#9 family harmony");
+    expectTrue(containsSymbol("13") || containsSymbol("7"),
+               "altered_chords fixture detects F13 family harmony");
+}
+
 void testCheckedInFixturesLoad()
 {
     expectTrue(getTestFixturesDirectory().isDirectory(), "Test fixtures directory resolves");
     testTempoTimeSigFixtureBehavior();
     testTiesSyncopationFixtureBehavior();
+    testSyncopatedDurationsFixtureBehavior();
+    testAlteredChordsFixtureBehavior();
 }
 }
 

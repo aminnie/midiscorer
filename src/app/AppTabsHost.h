@@ -26,6 +26,11 @@ public:
         tabs.setBounds(getLocalBounds());
     }
 
+    void runStartupTasks()
+    {
+        scoreTab.runStartupResumeIfEnabled();
+    }
+
 private:
     juce::TabbedComponent tabs;
     MainComponent scoreTab;

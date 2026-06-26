@@ -36,7 +36,7 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
   - **Start/Stop**, **Continue**, and bar start input
   - optional A-B loop controls for repeating a series of bars during practice
 - Tabbed workspace (tab order: **Start**, **Score**, **Effects**):
-  - `Start` tab for MIDI output device selection (transport controls are on the Score tab)
+  - `Start` tab for MIDI output device selection and optional **Reopen last MIDI on startup** (transport controls are on the Score tab)
   - `Score` tab for notation/chord controls and renderers
   - `Effects` tab for per-track mix controls
 - MIDI player and output:

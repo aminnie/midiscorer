@@ -39,6 +39,9 @@ private:
             setContentOwned(new AppTabsHost(), true);
             centreWithSize(1280, 720);
             setVisible(true);
+
+            if (auto* host = dynamic_cast<AppTabsHost*>(getContentComponent()))
+                juce::MessageManager::callAsync([host]() { host->runStartupTasks(); });
         }
 
         void closeButtonPressed() override

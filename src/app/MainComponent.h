@@ -252,6 +252,7 @@ public:
         setStatusMessage("Load a MIDI file to begin.");
         loadLastMidiDirectoryFromPreset();
         loadRecentFilesFromPreset();
+        loadStartupSettingsFromPreset();
         refreshRecentFilesSelector();
         loadSelectedMidiOutputFromConfig();
 
@@ -369,6 +370,38 @@ public:
     juce::String getLoadedMidiFileName() const
     {
         return project.file.existsAsFile() ? project.file.getFileName() : juce::String();
+    }
+
+    bool isStartupResumeEnabled() const
+    {
+        return startupResumeEnabled;
+    }
+
+    void setStartupResumeEnabled(bool enabled)
+    {
+        if (startupResumeEnabled == enabled)
+            return;
+
+        startupResumeEnabled = enabled;
+        saveStartupResumeEnabledToPreset();
+    }
+
+    void runStartupResumeIfEnabled()
+    {
+        if (!startupResumeEnabled)
+            return;
+
+        juce::File resumeFile(lastLoadedMidiPath);
+        if (!resumeFile.existsAsFile() && !recentMidiFiles.empty())
+            resumeFile = juce::File(recentMidiFiles.front());
+
+        if (!resumeFile.existsAsFile())
+        {
+            setStatusMessage("Startup resume enabled but no valid last/recent MIDI file was found.");
+            return;
+        }
+
+        loadMidiFileFromPath(resumeFile);
     }
 
     int getTrackMixTrackCount() const
@@ -1132,6 +1165,55 @@ private:
             juce::Logger::writeToLog("MidiScorer: could not save last MIDI directory: " + writeError);
     }
 
+    void loadStartupSettingsFromPreset()
+    {
+        const auto file = PresetFileStore::getPresetFilePath();
+        if (!file.existsAsFile())
+            return;
+
+        juce::var parsed;
+        const auto parseResult = juce::JSON::parse(file.loadFileAsString(), parsed);
+        if (parseResult.failed() || !parsed.isObject())
+            return;
+
+        auto* obj = parsed.getDynamicObject();
+        if (obj == nullptr)
+            return;
+
+        startupResumeEnabled = static_cast<bool>(obj->getProperty("startupResumeEnabled"));
+        if (obj->hasProperty("lastLoadedMidiPath"))
+            lastLoadedMidiPath = obj->getProperty("lastLoadedMidiPath").toString().trim();
+    }
+
+    void saveStartupResumeEnabledToPreset()
+    {
+        const auto enabled = startupResumeEnabled;
+        juce::String writeError;
+        if (!PresetFileStore::mergeWritePreset(
+                [&](juce::DynamicObject& obj)
+                {
+                    obj.setProperty("startupResumeEnabled", enabled);
+                },
+                writeError))
+            juce::Logger::writeToLog("MidiScorer: could not save startup resume setting: " + writeError);
+    }
+
+    void saveLastLoadedMidiPathToPreset()
+    {
+        if (lastLoadedMidiPath.isEmpty())
+            return;
+
+        const auto path = lastLoadedMidiPath;
+        juce::String writeError;
+        if (!PresetFileStore::mergeWritePreset(
+                [&](juce::DynamicObject& obj)
+                {
+                    obj.setProperty("lastLoadedMidiPath", path);
+                },
+                writeError))
+            juce::Logger::writeToLog("MidiScorer: could not save last loaded MIDI path: " + writeError);
+    }
+
     static juce::File findFirstMidiFile(const juce::StringArray& files)
     {
         for (const auto& path : files)
@@ -1323,6 +1405,8 @@ private:
         setStatusMessage(autoPresetLoaded
                              ? ("Loaded: " + project.file.getFileName() + " (auto preset applied)")
                              : ("Loaded: " + project.file.getFileName()));
+        lastLoadedMidiPath = project.file.getFullPathName().replaceCharacter('\\', '/');
+        saveLastLoadedMidiPathToPreset();
     }
 
     juce::String getSongPresetKey() const
@@ -1551,6 +1635,9 @@ private:
         obj->setProperty("tempoOverrideEnabled", tempoOverrideBpm.has_value());
         obj->setProperty("tempoOverrideText", tempoOverrideInput.getText().trim());
         obj->setProperty("loopEnabled", loopEnabled);
+        obj->setProperty("startupResumeEnabled", startupResumeEnabled);
+        if (lastLoadedMidiPath.isNotEmpty())
+            obj->setProperty("lastLoadedMidiPath", lastLoadedMidiPath);
         if (lastMidiDirectory.isDirectory())
             obj->setProperty("lastMidiDirectory", lastMidiDirectory.getFullPathName());
         {
@@ -2437,7 +2524,9 @@ private:
     TrackMixState trackMixState;
     std::unique_ptr<juce::FileChooser> fileChooser;
     juce::File lastMidiDirectory;
+    juce::String lastLoadedMidiPath;
     std::vector<juce::String> recentMidiFiles;
+    bool startupResumeEnabled = false;
     juce::String midiOutputRestoreWarning;
     bool continueArmed = false;
     bool loopEnabled = false;

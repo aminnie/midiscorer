@@ -25,6 +25,15 @@ public:
         refreshOutputsButton.setButtonText("Refresh");
         refreshOutputsButton.onClick = [this] { refreshOutputDeviceList(); };
 
+        addAndMakeVisible(startupResumeToggle);
+        startupResumeToggle.setButtonText("Reopen last MIDI on startup");
+        startupResumeToggle.setToggleState(scorePage.isStartupResumeEnabled(), juce::dontSendNotification);
+        startupResumeToggle.setTooltip("When enabled, MidiScorer reopens the last loaded MIDI file (or most recent file) on launch.");
+        startupResumeToggle.onClick = [this]
+        {
+            scorePage.setStartupResumeEnabled(startupResumeToggle.getToggleState());
+        };
+
         addAndMakeVisible(outputSelector);
         outputSelector.onChange = [this] { handleOutputSelectionChanged(); };
 
@@ -40,6 +49,9 @@ public:
         outputLabel.setBounds(row1.removeFromLeft(90));
         outputSelector.setBounds(row1.removeFromLeft(360).reduced(4, 0));
         refreshOutputsButton.setBounds(row1.removeFromLeft(96).reduced(4, 0));
+
+        area.removeFromTop(8);
+        startupResumeToggle.setBounds(area.removeFromTop(24));
 
         area.removeFromTop(8);
         fileLabel.setBounds(area.removeFromTop(24));
@@ -123,6 +135,7 @@ private:
     juce::Label outputLabel;
     juce::ComboBox outputSelector;
     juce::TextButton refreshOutputsButton;
+    juce::ToggleButton startupResumeToggle;
     juce::Label fileLabel;
     juce::Label statusLabel;
 };
