@@ -13,6 +13,13 @@ MidiScorer is a JUCE/C++ desktop app that:
 
 Primary user goals are notation readability, deterministic chord behavior, and fast iteration on UI/workflow.
 
+## Tech stack and platform intent
+
+- Framework/runtime: JUCE desktop application.
+- Language/toolchain baseline: C++17 project settings and existing JUCE/CMake patterns in repo.
+- Target platforms: Windows and macOS parity for user-facing behavior unless explicitly scoped otherwise.
+- Build system: CMake + JUCE helpers; prefer script/documented workflows in `build.md`.
+
 ## Core architecture
 
 Use these modules as the source of truth for each concern:
@@ -40,6 +47,10 @@ Use these modules as the source of truth for each concern:
 - Keep UI state and rebuild triggers in `MainComponent`.
 - Preserve existing drum exceptions (drum clef / channel 10 should not be transposed).
 - Keep SMF type **0** rejection and the type **1** conversion modal message in `MidiProjectLoader` / `MainComponent` unless requirements change explicitly.
+- Keep workflow non-destructive: do not add features that rewrite source MIDI files in normal app flow.
+- Persist user edits via profile state (`ui_preset.json`) and prefer Save/Load Preset based workflows.
+- Keep transport semantics on Score tab as `Start/Stop` + `Continue` (no dedicated Pause button unless explicitly requested).
+- Do not add hardcoded debug log file writes or agent instrumentation blocks in production UI code.
 
 ## Preferred change style
 
@@ -47,6 +58,7 @@ Use these modules as the source of truth for each concern:
 - Preserve existing behavior unless explicitly requested.
 - Prefer small helper methods over deeply nested logic.
 - Add short comments only for non-obvious logic.
+- Keep local build docs/scripts/CI expectations aligned when changing build or workflow behavior.
 
 ## Common workflows
 
@@ -61,9 +73,22 @@ Typical agent loop after code changes:
 ## Before finishing a coding task
 
 1. Build successfully.
-2. Run tests (`ctest`) when behavior changes touch core logic.
+2. Run tests (`ctest`) for all code changes (docs-only changes are the exception).
 3. Smoke-check app behavior for affected UI/notation/chord paths.
 4. Update docs (`README.md`, `TECHNICAL_DESIGN.md`, `todo.md`) when user-visible behavior or architecture changes.
+
+## Testing policy
+
+- Prefer deterministic, checked-in fixture coverage for behavior changes when practical.
+- Avoid relying only on manual smoke checks when a regression can be unit/integration tested.
+- Keep tests aligned with documented behavior (especially MIDI ingest rules, transport UX, and preset persistence).
+
+## Backlog and governance
+
+- Treat `todo.md` as the working backlog for planned/implemented work.
+- When a todo item is implemented, update its checklist state and acceptance notes accordingly.
+- Do not introduce features that conflict with Guardrails unless the user explicitly requests an exception.
+- When a change affects workflow policy or UX guardrails (for example: non-destructive file handling, transport semantics, preset behavior), use a commit message that explicitly names that policy-impacting change.
 
 ## Regression-sensitive areas
 
@@ -76,6 +101,8 @@ Typical agent loop after code changes:
 - Track mix MIDI seeding vs saved `trackMixBySong` preset precedence (Chan, volume, reverb)
 - SMF type **0** load rejection and warning-modal messaging
 - Save Preset dirty-state styling and score song-settings snapshot comparison
+- Loop A/B bounds clamping and loop wrap behavior during playback
+- Recent-file UX (`Open Recent`) selection fallback and duplicate filename disambiguation
 
 ## Existing technical references
 
@@ -84,3 +111,23 @@ Typical agent loop after code changes:
 - `TECHNICAL_DESIGN.md` - deep technical design for scoring and chord detection
 - `CONTRIBUTING.md` - contributor expectations and smoke-test checklist
 - `tests/fixtures/fixture-specs.md` - fixture intent and test mapping
+
+## Decision history (latest)
+
+- **Non-destructive workflow policy**
+  - Source MIDI files are treated as read-only inputs in normal app usage.
+  - User edits are persisted/restored through profile state (`ui_preset.json`) via Save/Load Preset.
+  - Rationale: preserve original files and keep reversible user workflows.
+
+- **Transport UX simplification**
+  - Score tab transport uses `Start/Stop` and `Continue`; dedicated Pause button removed.
+  - Rationale: reduce ambiguity and keep behavior aligned with user expectations.
+
+- **Recent-file usability**
+  - `Open Recent` should open a selected recent file, and safely fall back to most-recent when placeholder is selected.
+  - Recent list entries should disambiguate duplicate filenames by including parent-folder context.
+  - Rationale: prevent no-op clicks and confusion with same-named files from different directories.
+
+- **Production logging hygiene**
+  - Temporary/hardcoded debug instrumentation (especially file writes from UI callbacks) should not ship.
+  - Rationale: avoid platform-specific failures, noisy I/O, and maintenance risk.

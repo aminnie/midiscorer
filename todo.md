@@ -131,28 +131,50 @@ This checklist tracks code-review findings and implementation work items.
 
 ## Priority 7 - Reliability and correctness (highest impact)
 
-- [ ] **P0 / S** Remove production debug instrumentation from Effects tab (`appendDebugLog`, hardcoded `debug-e2bc95.log`).
+- [x] **P0 / S** Remove production debug instrumentation from Effects tab (`appendDebugLog`, hardcoded `debug-e2bc95.log`).
   - Files: `src/app/TracksTabComponent.h`
   - Acceptance:
     - No debug file writes occur during Effects-tab interaction.
     - Solo/mute updates still refresh rows safely and deterministically.
-- [ ] **P0 / M** Reconcile SMF type **0** behavior across loader/UI/tests/docs.
+- [x] **P0 / M** Reconcile SMF type **0** behavior across loader/UI/tests/docs.
   - Files: `src/midi/MidiProjectLoader.h`, `src/app/MainComponent.h`, `tests/test_main.cpp`, `README.md`, `CONTRIBUTING.md`, `TECHNICAL_DESIGN.md`
   - Acceptance:
     - App load path and docs consistently describe type **0** rejection with conversion guidance.
     - Loader tests continue to verify type checks and user-facing error guidance.
-- [ ] **P0 / M** Make preset writes atomic and failure-safe (`ui_preset.json` temp-write + replace, user-visible failure path).
+- [x] **P0 / M** Make preset writes atomic and failure-safe (`ui_preset.json` temp-write + replace, user-visible failure path).
   - Files: `src/app/MainComponent.h`
   - Acceptance:
     - Preset writes use atomic replacement instead of direct overwrite.
     - Failed writes surface an actionable user-facing status message.
-- [ ] **P0 / S** Surface MIDI output restore failures in UI instead of logger-only handling.
+- [x] **P0 / S** Surface MIDI output restore failures in UI instead of logger-only handling.
   - Files: `src/app/MainComponent.h`, `src/app/PlayerTabComponent.h`
   - Acceptance:
     - Failed output restore shows a warning in Start tab status text.
     - Manual output selection clears stale restore warning state.
 
-## Priority 8 - Maintainability and performance
+## Priority 8 - Workflow/policy alignment shipped
+
+- [x] Enforce non-destructive workflow (no source MIDI rewrite/export path in normal app flow).
+  - Files: `src/app/MainComponent.h`, `src/midi/MidiMixExporter.h`, `tests/test_main.cpp`, docs
+  - Acceptance:
+    - Export-MIDI action removed from Score tab and exporter path removed from active app/test flow.
+    - Save/Load Preset remains the canonical way to keep/revert user edits.
+- [x] Simplify transport UX to `Start/Stop` + `Continue` and remove dedicated Pause button.
+  - Files: `src/app/MainComponent.h`, `README.md`, `AGENT.md`
+  - Acceptance:
+    - Main transport button toggles Start/Stop semantics only.
+    - Dedicated Pause button is not shown in UI.
+- [x] Fix `Open Recent` usability for no-op clicks and duplicate filename ambiguity.
+  - Files: `src/app/MainComponent.h`, `AGENT.md`
+  - Acceptance:
+    - `Open Recent` falls back to most-recent when placeholder is selected.
+    - Recent entries include folder context to disambiguate duplicate names.
+- [x] Match Loop A/B input formatting with Continue Bar input.
+  - Files: `src/app/MainComponent.h`
+  - Acceptance:
+    - Loop A and B text inputs use centered numeric text presentation.
+
+## Priority 9 - Maintainability and performance
 
 - [ ] **P1 / L** Decompose `MainComponent` into smaller services (`PresetStore`, `ScoreRebuildService`, transport coordinator).
   - Files: `src/app/MainComponent.h` and extracted helpers under `src/app/`
@@ -175,7 +197,7 @@ This checklist tracks code-review findings and implementation work items.
   - Acceptance:
     - Behavior is deterministic and documented for files with tempo changes.
 
-## Priority 9 - Test/CI hardening and product UX enhancements
+## Priority 10 - Test/CI hardening and product UX enhancements
 
 - [ ] **P1 / S** Pin JUCE revision in CI for stability.
   - Files: `.github/workflows/ci.yml`
@@ -201,7 +223,7 @@ This checklist tracks code-review findings and implementation work items.
   - Files: `tests/fixtures/`, `tests/fixtures/fixture-specs.md`, `tests/test_main.cpp`
   - Acceptance:
     - Fixture specs for syncopation/altered chords are represented by checked-in files and tests.
-- [ ] **P2 / L** Add score export options (PNG/PDF) and/or rendering regression tests.
+- [ ] **P2 / L** Add score export options (PNG/PDF only) and/or rendering regression tests.
   - Files: `src/notation/ScoreRenderer.h`, `src/app/MainComponent.h`, tests/docs as needed
   - Acceptance:
-    - A documented export or regression-testing path improves score-output reliability.
+    - A documented non-MIDI export path (PNG/PDF) or regression-testing path improves score-output reliability without rewriting source MIDI files.
