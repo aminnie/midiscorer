@@ -186,6 +186,17 @@ public:
         exportPdfButton.setButtonText("Export PDF...");
         exportPdfButton.onClick = [this] { exportScorePdf(); };
 
+        addAndMakeVisible(exportPdfModeSelector);
+        exportPdfModeSelector.addItem("All", static_cast<int>(PdfExportMode::allActiveStaffs));
+        exportPdfModeSelector.addItem("First", static_cast<int>(PdfExportMode::staff1Only));
+        exportPdfModeSelector.setSelectedId(static_cast<int>(PdfExportMode::allActiveStaffs), juce::dontSendNotification);
+        exportPdfModeSelector.onChange = [this]
+        {
+            saveUiPreset(false);
+            refreshSavePresetButtonDirtyStyle();
+        };
+        exportPdfModeSelector.setTooltip("Select whether PDF export includes all staffs or only the first staff.");
+
         addAndMakeVisible(statusLabel);
         statusLabel.setJustificationType(juce::Justification::centredLeft);
 
@@ -286,16 +297,21 @@ public:
         accidentalSelector.setBounds(row.removeFromLeft(120).reduced(4, 0));
         accidentalHelpButton.setBounds(row.removeFromLeft(28).reduced(4, 0));
         aliasSelector.setBounds(row.removeFromLeft(136).reduced(4, 0));
-        scoreColorToggle.setBounds(row.removeFromLeft(106).reduced(4, 0));
         savePresetButton.setBounds(row.removeFromLeft(100).reduced(4, 0));
         loadPresetButton.setBounds(row.removeFromLeft(100).reduced(4, 0));
-        exportPdfButton.setBounds(row.removeFromLeft(108).reduced(4, 0));
         openRecentButton.setBounds(row.removeFromLeft(94).reduced(4, 0));
-        recentFilesSelector.setBounds(row.removeFromLeft(170).reduced(4, 0));
+        recentFilesSelector.setBounds(row.removeFromLeft(210).reduced(4, 0));
         chordTracksLabel.setBounds(row);
 
         area.removeFromTop(6);
         auto selectorRow = area.removeFromTop(26);
+        constexpr int scoreColorToggleWidth = 110;
+        auto scoreColorArea = selectorRow.removeFromRight(juce::jmin(scoreColorToggleWidth, selectorRow.getWidth()));
+        selectorRow.removeFromRight(juce::jmin(4, selectorRow.getWidth()));
+        exportPdfButton.setBounds(selectorRow.removeFromRight(juce::jmin(108, selectorRow.getWidth())).reduced(4, 0));
+        selectorRow.removeFromRight(juce::jmin(4, selectorRow.getWidth()));
+        exportPdfModeSelector.setBounds(selectorRow.removeFromRight(juce::jmin(72, selectorRow.getWidth())).reduced(4, 0));
+        selectorRow.removeFromRight(juce::jmin(6, selectorRow.getWidth()));
         constexpr int staffSectionWidth = 338;
         constexpr int staffSectionGap = 6;
         auto section1 = selectorRow.removeFromLeft(juce::jmin(staffSectionWidth, selectorRow.getWidth()));
@@ -308,6 +324,7 @@ public:
         layoutStaffControls(section3, staff3TrackLabel, staff3TrackSelector, staff3ClefSelector);
         staff2TrackLabel.setBounds(staff2TrackLabel.getBounds().translated(6, 0));
         staff3TrackLabel.setBounds(staff3TrackLabel.getBounds().translated(6, 0));
+        scoreColorToggle.setBounds(scoreColorArea.reduced(4, 0));
 
         area.removeFromTop(6);
         auto chordTracksArea = area.removeFromTop(getChordTracksLayoutHeight(area.getWidth()));
@@ -614,6 +631,7 @@ private:
         juce::String keyOverrideText;
         juce::String tempoOverrideText;
         bool scoreLightMode = true;
+        int pdfExportModeId = 1;
 
         bool operator==(const ScoreSongSettingsSnapshot& other) const
         {
@@ -625,9 +643,23 @@ private:
                 && transposeSemitones == other.transposeSemitones
                 && keyOverrideText == other.keyOverrideText
                 && tempoOverrideText == other.tempoOverrideText
-                && scoreLightMode == other.scoreLightMode;
+                && scoreLightMode == other.scoreLightMode
+                && pdfExportModeId == other.pdfExportModeId;
         }
     };
+
+    enum class PdfExportMode
+    {
+        allActiveStaffs = 1,
+        staff1Only = 2
+    };
+
+    static PdfExportMode pdfExportModeFromSelectorId(int selectedId)
+    {
+        return selectedId == static_cast<int>(PdfExportMode::staff1Only)
+            ? PdfExportMode::staff1Only
+            : PdfExportMode::allActiveStaffs;
+    }
 
     void updateWindowTitle()
     {
@@ -876,6 +908,7 @@ private:
         snapshot.keyOverrideText = keyOverride.has_value() ? keyOverride->displayText : juce::String();
         snapshot.tempoOverrideText = tempoOverrideInput.getText().trim();
         snapshot.scoreLightMode = scoreColorToggle.getToggleState();
+        snapshot.pdfExportModeId = exportPdfModeSelector.getSelectedId();
         return snapshot;
     }
 
@@ -1638,6 +1671,7 @@ private:
         obj->setProperty("accidental", accidentalSelector.getSelectedId());
         obj->setProperty("alias", aliasSelector.getSelectedId());
         obj->setProperty("scoreLightMode", scoreColorToggle.getToggleState());
+        obj->setProperty("pdfExportMode", exportPdfModeSelector.getSelectedId());
         obj->setProperty("tempoOverrideEnabled", tempoOverrideBpm.has_value());
         obj->setProperty("tempoOverrideText", tempoOverrideInput.getText().trim());
         obj->setProperty("loopEnabled", loopEnabled);
@@ -1923,6 +1957,11 @@ private:
                 hasSongAliasMap ? 1 : juce::jlimit(1, 2, getIntProperty("alias", 1)),
                 juce::dontSendNotification);
         }
+        exportPdfModeSelector.setSelectedId(
+            juce::jlimit(static_cast<int>(PdfExportMode::allActiveStaffs),
+                         static_cast<int>(PdfExportMode::staff1Only),
+                         getIntProperty("pdfExportMode", static_cast<int>(PdfExportMode::allActiveStaffs))),
+            juce::dontSendNotification);
         scoreColorToggle.setToggleState(getIntProperty("scoreLightMode", 0) != 0, juce::dontSendNotification);
         if (obj->hasProperty("lastMidiDirectory"))
         {
@@ -2180,11 +2219,18 @@ private:
         });
     }
 
-    std::vector<ScorePdfExporter::StaffExportLane> buildScoreExportLanes() const
+    std::vector<ScorePdfExporter::StaffExportLane> buildScoreExportLanes(PdfExportMode mode) const
     {
         std::vector<ScorePdfExporter::StaffExportLane> lanes;
-        lanes.reserve(3);
+        if (mode == PdfExportMode::staff1Only)
+        {
+            lanes.reserve(1);
+            if (!scoreModel1.empty())
+                lanes.push_back({ &scoreModel1, &scoreRenderer });
+            return lanes;
+        }
 
+        lanes.reserve(3);
         if (!scoreModel1.empty())
             lanes.push_back({ &scoreModel1, &scoreRenderer });
         if (!scoreModel2.empty())
@@ -2203,10 +2249,14 @@ private:
             return;
         }
 
-        const auto lanes = buildScoreExportLanes();
+        const auto exportMode = pdfExportModeFromSelectorId(exportPdfModeSelector.getSelectedId());
+        const auto lanes = buildScoreExportLanes(exportMode);
         if (lanes.empty())
         {
-            showWarningModal(this, "Export PDF", "No rendered staff notation is available to export.");
+            const auto message = exportMode == PdfExportMode::staff1Only
+                ? juce::String("Staff 1 has no rendered notation to export.")
+                : juce::String("No rendered staff notation is available to export.");
+            showWarningModal(this, "Export PDF", message);
             return;
         }
 
@@ -2216,7 +2266,10 @@ private:
         const auto baseName = project.file.existsAsFile()
             ? project.file.getFileNameWithoutExtension()
             : juce::String("score");
-        const auto defaultFile = defaultDir.getChildFile(baseName + "_score.pdf");
+        const auto fileSuffix = exportMode == PdfExportMode::staff1Only
+            ? juce::String("_staff1_score.pdf")
+            : juce::String("_score.pdf");
+        const auto defaultFile = defaultDir.getChildFile(baseName + fileSuffix);
 
         exportPdfFileChooser = std::make_unique<juce::FileChooser>(
             "Export score PDF",
@@ -2229,7 +2282,7 @@ private:
         const auto chooserFlags = juce::FileBrowserComponent::saveMode
                                   | juce::FileBrowserComponent::canSelectFiles
                                   | juce::FileBrowserComponent::warnAboutOverwriting;
-        exportPdfFileChooser->launchAsync(chooserFlags, [this](const juce::FileChooser& chooser)
+        exportPdfFileChooser->launchAsync(chooserFlags, [this, exportMode](const juce::FileChooser& chooser)
         {
             auto outputFile = chooser.getResult();
             if (outputFile == juce::File())
@@ -2244,7 +2297,7 @@ private:
                 ? project.file.getFileNameWithoutExtension()
                 : juce::String("MidiScorer Score");
             options.subtitle = "Bars 1-" + juce::String(juce::jmax(1, project.maxBar));
-            if (!ScorePdfExporter::exportToFile(outputFile, buildScoreExportLanes(), options, error, &pageCount))
+            if (!ScorePdfExporter::exportToFile(outputFile, buildScoreExportLanes(exportMode), options, error, &pageCount))
             {
                 const auto message = error.isNotEmpty() ? error : juce::String("Failed to export PDF.");
                 showWarningModal(this, "Export PDF", message);
@@ -2582,6 +2635,7 @@ private:
     juce::TextEditor loopEndInput;
     juce::TextButton savePresetButton;
     juce::TextButton loadPresetButton;
+    juce::ComboBox exportPdfModeSelector;
     juce::TextButton exportPdfButton;
     juce::ComboBox recentFilesSelector;
     juce::TextButton openRecentButton;

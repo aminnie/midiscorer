@@ -60,15 +60,19 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
   - loaded MIDI files are treated as source material and are not rewritten by the app
   - user edits are persisted in profile data and can be reloaded with **Load Preset**
 - Full-song score PDF export:
-  - **Export PDF...** writes a multi-page rendered score for bars `1..maxBar` across all non-empty staff lanes
+  - `PDF mode` selector supports:
+    - `All active staffs` (current behavior)
+    - `Staff 1 only`
+  - **Export PDF...** writes a multi-page rendered score for bars `1..maxBar` using the selected mode
   - export includes static chord labels and excludes live playback chord markers
   - output is a rendered document (non-MIDI), preserving the app's non-destructive workflow
+  - selected PDF mode is remembered in `ui_preset.json`
 - Display options:
   - `Light Score` / dark score toggle (Light Score is default)
   - status line order: **Sig**, **Bar**, playback message, **Tempo**, **KeySrc**
   - `Save Preset` turns red when score song settings are dirty; returns to default after save/load
 - Score tab UI layout (row summary):
-  - row 1: Load MIDI, Start/Stop, Continue, Bar, accidental/alias, Light Score, Save/Load Preset, Export PDF
+  - row 1: Load MIDI, Start/Stop, Continue, Bar, accidental/alias, Light Score, Save/Load Preset, PDF mode, Export PDF
   - row 2: staff track/clef selectors
   - row 3: Chord Tracks checkboxes
   - row 4: Tempo, Key, Transpose, status line
@@ -141,12 +145,13 @@ open "build-mac/MidiScorer_artefacts/Debug/MidiScorer.app"
    - chord naming options
    - score color mode
 7. Use **Score** tab to view/edit notation options and track assignments.
-8. Use **Export PDF...** on the Score tab to write a full-song rendered score PDF.
-   - export uses current staff selections/clefs/chord labels
+8. Choose the Score tab `PDF mode` (`All active staffs` or `Staff 1 only`).
+9. Use **Export PDF...** on the Score tab to write a full-song rendered score PDF.
+   - export uses current staff selections/clefs/chord labels according to selected PDF mode
    - live chord marker overlays are excluded from static export
-9. Use **Start** tab to select a MIDI output device.
-10. Use **Score** tab **Start/Stop**, **Continue**, and **Bar** for playback transport.
-11. Use **Effects** tab to adjust per-track **Chan**, Mute, Solo, Volume, and Reverb.
+10. Use **Start** tab to select a MIDI output device.
+11. Use **Score** tab **Start/Stop**, **Continue**, and **Bar** for playback transport.
+12. Use **Effects** tab to adjust per-track **Chan**, Mute, Solo, Volume, and Reverb.
     - Use **Chan** changes if you need to reorganize channels in order to play along with the score and MIDI file while playing an instrument that shares the selected MIDI module.
 
 ## Notes and known limitations

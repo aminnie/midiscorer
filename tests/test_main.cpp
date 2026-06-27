@@ -444,12 +444,19 @@ ScoreModel makeTestScoreModelWithBarCount(int barCount)
 
 void testScorePdfExportWritesValidPdf()
 {
-    auto model = makeTestScoreModelWithBarCount(12);
-    ScoreRenderer renderer;
-    renderer.setScoreModel(&model);
-    renderer.setClefType(ScoreRenderer::ClefType::treble);
-    renderer.setStaffLabel("Test Staff");
-    renderer.setCurrentBar(1);
+    auto model1 = makeTestScoreModelWithBarCount(12);
+    auto model2 = makeTestScoreModelWithBarCount(12);
+    ScoreRenderer renderer1;
+    renderer1.setScoreModel(&model1);
+    renderer1.setClefType(ScoreRenderer::ClefType::treble);
+    renderer1.setStaffLabel("Staff 1");
+    renderer1.setCurrentBar(1);
+
+    ScoreRenderer renderer2;
+    renderer2.setScoreModel(&model2);
+    renderer2.setClefType(ScoreRenderer::ClefType::bass);
+    renderer2.setStaffLabel("Staff 2");
+    renderer2.setCurrentBar(1);
 
     ScorePdfExporter::ExportOptions options;
     options.title = "PdfExportValid";
@@ -462,12 +469,12 @@ void testScorePdfExportWritesValidPdf()
     int pageCount = 0;
     const bool ok = ScorePdfExporter::exportToFile(
         tempFile,
-        std::vector<ScorePdfExporter::StaffExportLane> { { &model, &renderer } },
+        std::vector<ScorePdfExporter::StaffExportLane> { { &model1, &renderer1 }, { &model2, &renderer2 } },
         options,
         error,
         &pageCount);
 
-    expectTrue(ok, "Score PDF export returns success for valid staff model");
+    expectTrue(ok, "Score PDF export returns success for multi-staff lane export");
     if (!ok)
         std::cout << "PDF export error: " << error << std::endl;
     expectTrue(tempFile.existsAsFile(), "Score PDF export writes output file");
@@ -483,6 +490,55 @@ void testScorePdfExportWritesValidPdf()
         const bool hasPdfHeader = std::memcmp(bytes, "%PDF", 4) == 0;
         expectTrue(hasPdfHeader, "Score PDF output starts with %PDF header");
     }
+
+    if (tempFile.existsAsFile())
+        tempFile.deleteFile();
+}
+
+void testScorePdfExportFailsForEmptyStaff1OnlyMode()
+{
+    ScoreModel emptyStaff1Model;
+    ScoreRenderer emptyStaff1Renderer;
+    emptyStaff1Renderer.setScoreModel(&emptyStaff1Model);
+    emptyStaff1Renderer.setCurrentBar(1);
+
+    auto populatedStaff2Model = makeTestScoreModelWithBarCount(8);
+    ScoreRenderer populatedStaff2Renderer;
+    populatedStaff2Renderer.setScoreModel(&populatedStaff2Model);
+    populatedStaff2Renderer.setCurrentBar(1);
+    populatedStaff2Renderer.setStaffLabel("Staff 2");
+
+    ScorePdfExporter::ExportOptions options;
+    options.title = "PdfStaff1OnlyFailure";
+    options.barsPerRow = 4;
+
+    const auto tempFile = juce::File::getSpecialLocation(juce::File::tempDirectory)
+        .getNonexistentChildFile("midiscorer_pdf_staff1_only_fail_", ".pdf", false);
+    juce::String error;
+    int pageCount = 0;
+    const bool ok = ScorePdfExporter::exportToFile(
+        tempFile,
+        std::vector<ScorePdfExporter::StaffExportLane> { { &emptyStaff1Model, &emptyStaff1Renderer } },
+        options,
+        error,
+        &pageCount);
+
+    expectTrue(!ok, "Staff 1 only export fails when Staff 1 has no notation");
+    expectTrue(error.containsIgnoreCase("No staff notation"), "Staff 1 only empty export returns clear error message");
+    expectTrue(pageCount == 0, "Failed Staff 1 only export reports zero pages");
+
+    // Ensure all-staff style exports can still succeed with populated non-first lanes.
+    juce::String allStaffError;
+    int allStaffPages = 0;
+    const bool allStaffOk = ScorePdfExporter::exportToFile(
+        tempFile,
+        std::vector<ScorePdfExporter::StaffExportLane> { { &emptyStaff1Model, &emptyStaff1Renderer },
+                                                         { &populatedStaff2Model, &populatedStaff2Renderer } },
+        options,
+        allStaffError,
+        &allStaffPages);
+    expectTrue(allStaffOk, "All-staff export still succeeds when a later staff has notation");
+    expectTrue(allStaffPages >= 1, "All-staff export reports pages when non-first staff has notation");
 
     if (tempFile.existsAsFile())
         tempFile.deleteFile();
@@ -851,6 +907,7 @@ int main()
     testScoreModelGetBarsInRange();
     testScorePdfExportWritesValidPdf();
     testScorePdfExportPageCountScalesWithBars();
+    testScorePdfExportFailsForEmptyStaff1OnlyMode();
     testMidiPlaybackAdapterSeekAndDispatch();
     testTrackMixProcessor();
     testTrackMixMidiSeed();

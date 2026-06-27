@@ -202,6 +202,9 @@ The rendered window is a fixed rolling context:
 Score export reuses the existing notation stack rather than building a second renderer:
 
 1. `MainComponent` gathers non-empty staff lanes (`ScoreModel` + `ScoreRenderer` pairs).
+   - lane collection respects selected export mode:
+     - `All active staffs` collects all non-empty lanes
+     - `Staff 1 only` collects lane 1 only when non-empty
 2. `ScorePdfExporter` paginates bars `1..maxBar` in fixed-size systems (`barsPerRow`).
 3. For each system/lane, `ScoreRenderer::paintBarStrip(...)` draws bars with:
    - static chords enabled,
@@ -210,6 +213,8 @@ Score export reuses the existing notation stack rather than building a second re
 4. Page images are passed to `SimplePdfWriter`, which embeds JPEG page images into a valid PDF document.
 
 This keeps export non-destructive and consistent with on-screen notation behavior.
+
+The selected export mode is persisted in the preset payload (`pdfExportMode`) and restored on load.
 
 ## 4) Chord detection design
 
