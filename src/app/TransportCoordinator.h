@@ -143,12 +143,14 @@ public:
 
         const auto readyOff = juce::Colours::darkgreen;
         const auto readyOn = juce::Colours::darkgreen.brighter();
-        const auto playingOff = juce::Colours::darkgoldenrod;
-        const auto playingOn = juce::Colours::goldenrod;
+        const auto playingOff = juce::Colours::darkred;
+        const auto playingOn = juce::Colours::darkred.brighter();
         const auto disabled = juce::Colours::darkgrey;
 
-        ctx.transportToggleButton->setColour(juce::TextButton::textColourOffId, juce::Colours::black);
-        ctx.transportToggleButton->setColour(juce::TextButton::textColourOnId, juce::Colours::black);
+        ctx.transportToggleButton->setColour(juce::TextButton::textColourOffId,
+                                             hasProject && isPlaying ? juce::Colours::white : juce::Colours::black);
+        ctx.transportToggleButton->setColour(juce::TextButton::textColourOnId,
+                                             hasProject && isPlaying ? juce::Colours::white : juce::Colours::black);
         ctx.transportToggleButton->setColour(juce::TextButton::buttonColourId,
                                              hasProject ? (isPlaying ? playingOff : readyOff) : disabled);
         ctx.transportToggleButton->setColour(juce::TextButton::buttonOnColourId,

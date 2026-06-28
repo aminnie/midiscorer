@@ -299,19 +299,12 @@ public:
         aliasSelector.setBounds(row.removeFromLeft(136).reduced(4, 0));
         savePresetButton.setBounds(row.removeFromLeft(100).reduced(4, 0));
         loadPresetButton.setBounds(row.removeFromLeft(100).reduced(4, 0));
-        openRecentButton.setBounds(row.removeFromLeft(94).reduced(4, 0));
         recentFilesSelector.setBounds(row.removeFromLeft(210).reduced(4, 0));
+        openRecentButton.setBounds(row.removeFromLeft(94).reduced(4, 0));
         chordTracksLabel.setBounds(row);
 
         area.removeFromTop(6);
         auto selectorRow = area.removeFromTop(26);
-        constexpr int scoreColorToggleWidth = 110;
-        auto scoreColorArea = selectorRow.removeFromRight(juce::jmin(scoreColorToggleWidth, selectorRow.getWidth()));
-        selectorRow.removeFromRight(juce::jmin(4, selectorRow.getWidth()));
-        exportPdfButton.setBounds(selectorRow.removeFromRight(juce::jmin(108, selectorRow.getWidth())).reduced(4, 0));
-        selectorRow.removeFromRight(juce::jmin(4, selectorRow.getWidth()));
-        exportPdfModeSelector.setBounds(selectorRow.removeFromRight(juce::jmin(72, selectorRow.getWidth())).reduced(4, 0));
-        selectorRow.removeFromRight(juce::jmin(6, selectorRow.getWidth()));
         constexpr int staffSectionWidth = 338;
         constexpr int staffSectionGap = 6;
         auto section1 = selectorRow.removeFromLeft(juce::jmin(staffSectionWidth, selectorRow.getWidth()));
@@ -324,7 +317,12 @@ public:
         layoutStaffControls(section3, staff3TrackLabel, staff3TrackSelector, staff3ClefSelector);
         staff2TrackLabel.setBounds(staff2TrackLabel.getBounds().translated(6, 0));
         staff3TrackLabel.setBounds(staff3TrackLabel.getBounds().translated(6, 0));
-        scoreColorToggle.setBounds(scoreColorArea.reduced(4, 0));
+        selectorRow.removeFromLeft(juce::jmin(6, selectorRow.getWidth()));
+        exportPdfModeSelector.setBounds(selectorRow.removeFromLeft(juce::jmin(72, selectorRow.getWidth())).reduced(4, 0));
+        selectorRow.removeFromLeft(juce::jmin(4, selectorRow.getWidth()));
+        exportPdfButton.setBounds(selectorRow.removeFromLeft(juce::jmin(108, selectorRow.getWidth())).reduced(4, 0));
+        selectorRow.removeFromLeft(juce::jmin(4, selectorRow.getWidth()));
+        scoreColorToggle.setBounds(selectorRow.removeFromLeft(juce::jmin(110, selectorRow.getWidth())).reduced(4, 0));
 
         area.removeFromTop(6);
         auto chordTracksArea = area.removeFromTop(getChordTracksLayoutHeight(area.getWidth()));
