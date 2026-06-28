@@ -22,6 +22,13 @@ public:
         light
     };
 
+    enum class DisplayOctaveShift
+    {
+        downOne = -1,
+        normal = 0,
+        upOne = 1
+    };
+
     struct BarStripPaintOptions
     {
         bool highlightCurrentBar = false;
@@ -59,6 +66,25 @@ public:
     ColorScheme getColorScheme() const
     {
         return colorScheme;
+    }
+
+    void setDisplayOctaveShift(DisplayOctaveShift shift)
+    {
+        displayOctaveShift = shift;
+        repaint();
+    }
+
+    DisplayOctaveShift getDisplayOctaveShift() const
+    {
+        return displayOctaveShift;
+    }
+
+    static int applyDisplayOctaveShiftForView(int rawMidiNote, int octaveShiftSteps, bool isDrumClef)
+    {
+        if (isDrumClef || octaveShiftSteps == 0)
+            return juce::jlimit(0, 127, rawMidiNote);
+
+        return juce::jlimit(0, 127, rawMidiNote + octaveShiftSteps * 12);
     }
 
     void setKeySignature(bool hasSignature, int sharpsOrFlats)
@@ -262,6 +288,13 @@ private:
         if (spelled.accidental == 0)
             return {};
         return spelled.accidental < 0 ? "b" : "#";
+    }
+
+    int displayMidiNote(int rawMidiNote) const
+    {
+        return applyDisplayOctaveShiftForView(rawMidiNote,
+                                              static_cast<int>(displayOctaveShift),
+                                              clefType == ClefType::drum);
     }
 
     static void drawLedgerLines(juce::Graphics& g, const juce::Rectangle<int>& staffRect, float x, float y)
@@ -645,7 +678,8 @@ private:
                 continue;
             }
 
-            const float y = staffYForMidi(note.midiNote, staffRect, clefType);
+            const int displayNote = displayMidiNote(note.midiNote);
+            const float y = staffYForMidi(displayNote, staffRect, clefType);
             const float w = durationWidth(note.value);
             const float h = 7.0f;
 
@@ -655,7 +689,7 @@ private:
                 drawLedgerLines(g, staffRect, x + w * 0.5f, y);
                 g.fillEllipse(x, y - h * 0.5f, w, h);
             }
-            else if (isCymbalOrHatMidi(note.midiNote))
+            else if (isCymbalOrHatMidi(displayNote))
             {
                 const float cx = x + w * 0.5f;
                 const float r = 3.2f;
@@ -678,7 +712,7 @@ private:
             if (note.value == NoteValue::sixteenth)
                 g.drawLine(x + w, y - 18.0f, x + w + 6.0f, y - 14.0f, 1.1f);
 
-            const auto accidentalText = accidentalTextForMidi(note.midiNote);
+            const auto accidentalText = accidentalTextForMidi(displayNote);
             if (accidentalText.isNotEmpty())
             {
                 const int accidentalX = static_cast<int>(x - 11.0f);
@@ -723,8 +757,8 @@ private:
                 + durationWidth(leftNote.value);
             const float xB = left + static_cast<float>((rightNote.quarterInBar / juce::jmax(0.25, qPerBar)) * width)
                 + durationWidth(rightNote.value);
-            const float yA = staffYForMidi(leftNote.midiNote, staffRect, clefType) - 24.0f;
-            const float yB = staffYForMidi(rightNote.midiNote, staffRect, clefType) - 24.0f;
+            const float yA = staffYForMidi(displayMidiNote(leftNote.midiNote), staffRect, clefType) - 24.0f;
+            const float yB = staffYForMidi(displayMidiNote(rightNote.midiNote), staffRect, clefType) - 24.0f;
 
             g.setColour(noteColour);
             g.drawLine(xA, yA, xB, yB, 2.0f);
@@ -735,6 +769,7 @@ private:
     int currentBar = 1;
     ClefType clefType = ClefType::treble;
     ColorScheme colorScheme = ColorScheme::dark;
+    DisplayOctaveShift displayOctaveShift = DisplayOctaveShift::normal;
     bool hasKeySignature = false;
     int keySharpsOrFlats = 0;
     bool liveChordVisible = false;

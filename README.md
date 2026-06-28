@@ -69,11 +69,13 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
   - selected PDF mode is remembered in `ui_preset.json`
 - Display options:
   - `Light Score` / dark score toggle (Light Score is default)
+  - each staff has a display-octave selector: `-`, up arrow, down arrow
+  - display-octave shift affects notation rendering and PDF output only (not MIDI playback/chord analysis)
   - status line order: **Sig**, **Bar**, playback message, **Tempo**, **KeySrc**
   - `Save Preset` turns red when score song settings are dirty; returns to default after save/load
 - Score tab UI layout (row summary):
-  - row 1: Load MIDI, Start/Stop, Continue, Bar, accidental/alias, Light Score, Save/Load Preset, PDF mode, Export PDF
-  - row 2: staff track/clef selectors
+  - row 1: Load MIDI, Start/Stop, Continue, Bar, accidental/alias, Save/Load Preset, Recent MIDI, Open Recent, Chord Tracks label
+  - row 2: staff track/display-octave/clef selectors, then PDF mode, Export PDF, Light Score
   - row 3: Chord Tracks checkboxes
   - row 4: Tempo, Key, Transpose, status line
 - Window title includes loaded MIDI filename.

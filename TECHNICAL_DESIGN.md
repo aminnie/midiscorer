@@ -171,8 +171,10 @@ Outcome:
 - accidental text derived from spelling, not raw pitch-class constants
 - vertical placement uses diatonic steps for treble/bass
 - drum mode uses practical percussion mapping and x-noteheads for cymbal/hat classes
+- per-staff display octave shift (`-1/0/+1 octaves`) is applied at render time only
 
 This avoids semitone-linear staff placement artifacts and improves key-aware readability.
+Because octave shift is renderer-only, it does not alter MIDI playback, quantization, or chord-analysis input.
 
 ### 3.6 Rendering primitives
 
@@ -215,6 +217,7 @@ Score export reuses the existing notation stack rather than building a second re
 This keeps export non-destructive and consistent with on-screen notation behavior.
 
 The selected export mode is persisted in the preset payload (`pdfExportMode`) and restored on load.
+Per-staff display octave selections are also persisted (`staff1DisplayOctave`, `staff2DisplayOctave`, `staff3DisplayOctave`) and reflected in PDF output because export uses the live `ScoreRenderer` state.
 
 ## 4) Chord detection design
 

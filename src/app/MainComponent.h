@@ -49,7 +49,23 @@ public:
         staff1ClefSelector.addItem("Bass", 2);
         staff1ClefSelector.addItem("Drum", 3);
         staff1ClefSelector.setSelectedId(1, juce::dontSendNotification);
-        staff1ClefSelector.onChange = [this] { rebuildAllStaffs(); refreshSavePresetButtonDirtyStyle(); };
+        staff1ClefSelector.onChange = [this]
+        {
+            rebuildAllStaffs();
+            applyStaffDisplayOctaveFromSelectors(true);
+            refreshSavePresetButtonDirtyStyle();
+        };
+        addAndMakeVisible(staff1OctaveSelector);
+        staff1OctaveSelector.addItem("-", 1);
+        staff1OctaveSelector.addItem(juce::String::charToString(static_cast<juce_wchar>(0x2191)), 2);
+        staff1OctaveSelector.addItem(juce::String::charToString(static_cast<juce_wchar>(0x2193)), 3);
+        staff1OctaveSelector.setSelectedId(1, juce::dontSendNotification);
+        staff1OctaveSelector.onChange = [this]
+        {
+            applyStaffDisplayOctaveFromSelectors(true);
+            refreshSavePresetButtonDirtyStyle();
+        };
+        staff1OctaveSelector.setTooltip("Display-only octave shift for Staff 1. MIDI playback is unchanged.");
 
         addAndMakeVisible(staff2TrackLabel);
         staff2TrackLabel.setText("Staff 2", juce::dontSendNotification);
@@ -61,7 +77,23 @@ public:
         staff2ClefSelector.addItem("Bass", 2);
         staff2ClefSelector.addItem("Drum", 3);
         staff2ClefSelector.setSelectedId(1, juce::dontSendNotification);
-        staff2ClefSelector.onChange = [this] { rebuildAllStaffs(); refreshSavePresetButtonDirtyStyle(); };
+        staff2ClefSelector.onChange = [this]
+        {
+            rebuildAllStaffs();
+            applyStaffDisplayOctaveFromSelectors(true);
+            refreshSavePresetButtonDirtyStyle();
+        };
+        addAndMakeVisible(staff2OctaveSelector);
+        staff2OctaveSelector.addItem("-", 1);
+        staff2OctaveSelector.addItem(juce::String::charToString(static_cast<juce_wchar>(0x2191)), 2);
+        staff2OctaveSelector.addItem(juce::String::charToString(static_cast<juce_wchar>(0x2193)), 3);
+        staff2OctaveSelector.setSelectedId(1, juce::dontSendNotification);
+        staff2OctaveSelector.onChange = [this]
+        {
+            applyStaffDisplayOctaveFromSelectors(true);
+            refreshSavePresetButtonDirtyStyle();
+        };
+        staff2OctaveSelector.setTooltip("Display-only octave shift for Staff 2. MIDI playback is unchanged.");
 
         addAndMakeVisible(staff3TrackLabel);
         staff3TrackLabel.setText("Staff 3", juce::dontSendNotification);
@@ -73,7 +105,23 @@ public:
         staff3ClefSelector.addItem("Bass", 2);
         staff3ClefSelector.addItem("Drum", 3);
         staff3ClefSelector.setSelectedId(1, juce::dontSendNotification);
-        staff3ClefSelector.onChange = [this] { rebuildAllStaffs(); refreshSavePresetButtonDirtyStyle(); };
+        staff3ClefSelector.onChange = [this]
+        {
+            rebuildAllStaffs();
+            applyStaffDisplayOctaveFromSelectors(true);
+            refreshSavePresetButtonDirtyStyle();
+        };
+        addAndMakeVisible(staff3OctaveSelector);
+        staff3OctaveSelector.addItem("-", 1);
+        staff3OctaveSelector.addItem(juce::String::charToString(static_cast<juce_wchar>(0x2191)), 2);
+        staff3OctaveSelector.addItem(juce::String::charToString(static_cast<juce_wchar>(0x2193)), 3);
+        staff3OctaveSelector.setSelectedId(1, juce::dontSendNotification);
+        staff3OctaveSelector.onChange = [this]
+        {
+            applyStaffDisplayOctaveFromSelectors(true);
+            refreshSavePresetButtonDirtyStyle();
+        };
+        staff3OctaveSelector.setTooltip("Display-only octave shift for Staff 3. MIDI playback is unchanged.");
 
         addAndMakeVisible(transportToggleButton);
         transportToggleButton.setButtonText("Start");
@@ -264,6 +312,7 @@ public:
                 pausePlayback();
             seekToBarExternal(bar);
         });
+        applyStaffDisplayOctaveFromSelectors(true);
         applyScoreColorScheme();
         setStatusMessage("Load a MIDI file to begin.");
         loadLastMidiDirectoryFromPreset();
@@ -305,16 +354,16 @@ public:
 
         area.removeFromTop(6);
         auto selectorRow = area.removeFromTop(26);
-        constexpr int staffSectionWidth = 338;
+        constexpr int staffSectionWidth = 378;
         constexpr int staffSectionGap = 6;
         auto section1 = selectorRow.removeFromLeft(juce::jmin(staffSectionWidth, selectorRow.getWidth()));
         selectorRow.removeFromLeft(juce::jmin(staffSectionGap, selectorRow.getWidth()));
         auto section2 = selectorRow.removeFromLeft(juce::jmin(staffSectionWidth, selectorRow.getWidth()));
         selectorRow.removeFromLeft(juce::jmin(staffSectionGap, selectorRow.getWidth()));
         auto section3 = selectorRow.removeFromLeft(juce::jmin(staffSectionWidth, selectorRow.getWidth()));
-        layoutStaffControls(section1, staff1TrackLabel, staff1TrackSelector, staff1ClefSelector);
-        layoutStaffControls(section2, staff2TrackLabel, staff2TrackSelector, staff2ClefSelector);
-        layoutStaffControls(section3, staff3TrackLabel, staff3TrackSelector, staff3ClefSelector);
+        layoutStaffControls(section1, staff1TrackLabel, staff1TrackSelector, staff1OctaveSelector, staff1ClefSelector);
+        layoutStaffControls(section2, staff2TrackLabel, staff2TrackSelector, staff2OctaveSelector, staff2ClefSelector);
+        layoutStaffControls(section3, staff3TrackLabel, staff3TrackSelector, staff3OctaveSelector, staff3ClefSelector);
         staff2TrackLabel.setBounds(staff2TrackLabel.getBounds().translated(6, 0));
         staff3TrackLabel.setBounds(staff3TrackLabel.getBounds().translated(6, 0));
         selectorRow.removeFromLeft(juce::jmin(6, selectorRow.getWidth()));
@@ -622,6 +671,7 @@ private:
     {
         std::array<int, 3> staffTrackSelection = { 0, 0, 0 };
         std::array<int, 3> staffClefSelection = { 1, 1, 1 };
+        std::array<int, 3> staffDisplayOctaveSelection = { 1, 1, 1 };
         juce::String chordTrackSelectionCsv;
         int accidentalSelection = 1;
         int aliasSelection = 1;
@@ -635,6 +685,7 @@ private:
         {
             return staffTrackSelection == other.staffTrackSelection
                 && staffClefSelection == other.staffClefSelection
+                && staffDisplayOctaveSelection == other.staffDisplayOctaveSelection
                 && chordTrackSelectionCsv == other.chordTrackSelectionCsv
                 && accidentalSelection == other.accidentalSelection
                 && aliasSelection == other.aliasSelection
@@ -657,6 +708,50 @@ private:
         return selectedId == static_cast<int>(PdfExportMode::staff1Only)
             ? PdfExportMode::staff1Only
             : PdfExportMode::allActiveStaffs;
+    }
+
+    static int normalizeStaffDisplayOctaveSelectorId(int selectedId)
+    {
+        return juce::jlimit(1, 3, selectedId);
+    }
+
+    static ScoreRenderer::DisplayOctaveShift staffDisplayOctaveShiftFromSelectorId(int selectedId)
+    {
+        const int normalized = normalizeStaffDisplayOctaveSelectorId(selectedId);
+        if (normalized == 2)
+            return ScoreRenderer::DisplayOctaveShift::upOne;
+        if (normalized == 3)
+            return ScoreRenderer::DisplayOctaveShift::downOne;
+        return ScoreRenderer::DisplayOctaveShift::normal;
+    }
+
+    static void applyStaffDisplayOctaveState(juce::ComboBox& octaveSelector,
+                                             const juce::ComboBox& clefSelector,
+                                             ScoreRenderer& renderer,
+                                             bool normalizeSelector)
+    {
+        const bool isDrumClef = clefSelector.getSelectedId() == 3;
+        if (isDrumClef)
+        {
+            octaveSelector.setEnabled(false);
+            if (normalizeSelector)
+                octaveSelector.setSelectedId(1, juce::dontSendNotification);
+            renderer.setDisplayOctaveShift(ScoreRenderer::DisplayOctaveShift::normal);
+            return;
+        }
+
+        const int normalized = normalizeStaffDisplayOctaveSelectorId(octaveSelector.getSelectedId());
+        octaveSelector.setEnabled(true);
+        if (normalizeSelector)
+            octaveSelector.setSelectedId(normalized, juce::dontSendNotification);
+        renderer.setDisplayOctaveShift(staffDisplayOctaveShiftFromSelectorId(normalized));
+    }
+
+    void applyStaffDisplayOctaveFromSelectors(bool normalizeSelectors)
+    {
+        applyStaffDisplayOctaveState(staff1OctaveSelector, staff1ClefSelector, scoreRenderer, normalizeSelectors);
+        applyStaffDisplayOctaveState(staff2OctaveSelector, staff2ClefSelector, scoreRenderer2, normalizeSelectors);
+        applyStaffDisplayOctaveState(staff3OctaveSelector, staff3ClefSelector, scoreRenderer3, normalizeSelectors);
     }
 
     void updateWindowTitle()
@@ -883,11 +978,13 @@ private:
     static void layoutStaffControls(juce::Rectangle<int> area,
                                     juce::Label& label,
                                     juce::ComboBox& trackSelector,
+                                    juce::ComboBox& octaveSelector,
                                     juce::ComboBox& clefSelector)
     {
         label.setBounds(area.removeFromLeft(52));
-        trackSelector.setBounds(area.removeFromLeft(208).reduced(4, 0));
-        clefSelector.setBounds(area.removeFromLeft(78).reduced(4, 0));
+        trackSelector.setBounds(area.removeFromLeft(160).reduced(2, 0));
+        octaveSelector.setBounds(area.removeFromLeft(64).reduced(1, 0));
+        clefSelector.setBounds(area.removeFromRight(82));
     }
 
     ScoreSongSettingsSnapshot buildCurrentScoreSongSettingsSnapshot() const
@@ -899,6 +996,9 @@ private:
         snapshot.staffClefSelection = { staff1ClefSelector.getSelectedId(),
                                         staff2ClefSelector.getSelectedId(),
                                         staff3ClefSelector.getSelectedId() };
+        snapshot.staffDisplayOctaveSelection = { staff1OctaveSelector.getSelectedId(),
+                                                 staff2OctaveSelector.getSelectedId(),
+                                                 staff3OctaveSelector.getSelectedId() };
         snapshot.chordTrackSelectionCsv = buildChordTrackSelectionCsv();
         snapshot.accidentalSelection = accidentalSelector.getSelectedId();
         snapshot.aliasSelection = aliasSelector.getSelectedId();
@@ -1665,6 +1765,9 @@ private:
         obj->setProperty("staff1Clef", staff1ClefSelector.getSelectedId());
         obj->setProperty("staff2Clef", staff2ClefSelector.getSelectedId());
         obj->setProperty("staff3Clef", staff3ClefSelector.getSelectedId());
+        obj->setProperty("staff1DisplayOctave", normalizeStaffDisplayOctaveSelectorId(staff1OctaveSelector.getSelectedId()));
+        obj->setProperty("staff2DisplayOctave", normalizeStaffDisplayOctaveSelectorId(staff2OctaveSelector.getSelectedId()));
+        obj->setProperty("staff3DisplayOctave", normalizeStaffDisplayOctaveSelectorId(staff3OctaveSelector.getSelectedId()));
         obj->setProperty("chordTrackSelection", buildChordTrackSelectionCsv());
         obj->setProperty("accidental", accidentalSelector.getSelectedId());
         obj->setProperty("alias", aliasSelector.getSelectedId());
@@ -1898,6 +2001,13 @@ private:
         staff1ClefSelector.setSelectedId(getIntProperty("staff1Clef", 1), juce::dontSendNotification);
         staff2ClefSelector.setSelectedId(getIntProperty("staff2Clef", 1), juce::dontSendNotification);
         staff3ClefSelector.setSelectedId(getIntProperty("staff3Clef", 1), juce::dontSendNotification);
+        staff1OctaveSelector.setSelectedId(normalizeStaffDisplayOctaveSelectorId(getIntProperty("staff1DisplayOctave", 1)),
+                                           juce::dontSendNotification);
+        staff2OctaveSelector.setSelectedId(normalizeStaffDisplayOctaveSelectorId(getIntProperty("staff2DisplayOctave", 1)),
+                                           juce::dontSendNotification);
+        staff3OctaveSelector.setSelectedId(normalizeStaffDisplayOctaveSelectorId(getIntProperty("staff3DisplayOctave", 1)),
+                                           juce::dontSendNotification);
+        applyStaffDisplayOctaveFromSelectors(true);
         const auto songTransposeOverride = getSongTransposeOverrideFromPreset(*obj);
         if (songTransposeOverride.has_value())
         {
@@ -2605,12 +2715,15 @@ private:
     juce::TextButton loadButton;
     juce::Label staff1TrackLabel;
     juce::ComboBox staff1TrackSelector;
+    juce::ComboBox staff1OctaveSelector;
     juce::ComboBox staff1ClefSelector;
     juce::Label staff2TrackLabel;
     juce::ComboBox staff2TrackSelector;
+    juce::ComboBox staff2OctaveSelector;
     juce::ComboBox staff2ClefSelector;
     juce::Label staff3TrackLabel;
     juce::ComboBox staff3TrackSelector;
+    juce::ComboBox staff3OctaveSelector;
     juce::ComboBox staff3ClefSelector;
     juce::TextButton transportToggleButton;
     juce::ComboBox accidentalSelector;

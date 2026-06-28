@@ -10,6 +10,7 @@
 #include "../src/playback/TrackMixProcessor.h"
 #include "../src/playback/TrackMixMidiSeed.h"
 #include "../src/app/ScorePdfExporter.h"
+#include "../src/notation/ScoreRenderer.h"
 #include "TestFixturePaths.h"
 #include <iostream>
 #include <set>
@@ -544,6 +545,27 @@ void testScorePdfExportFailsForEmptyStaff1OnlyMode()
         tempFile.deleteFile();
 }
 
+void testDisplayOctaveShiftForView()
+{
+    const int unchanged = ScoreRenderer::applyDisplayOctaveShiftForView(60, 0, false);
+    expectTrue(unchanged == 60, "Display octave shift leaves normal notes unchanged");
+
+    const int upOne = ScoreRenderer::applyDisplayOctaveShiftForView(60, 1, false);
+    expectTrue(upOne == 72, "Display octave shift moves notes up one octave");
+
+    const int downOne = ScoreRenderer::applyDisplayOctaveShiftForView(60, -1, false);
+    expectTrue(downOne == 48, "Display octave shift moves notes down one octave");
+
+    const int clampedHigh = ScoreRenderer::applyDisplayOctaveShiftForView(123, 1, false);
+    expectTrue(clampedHigh == 127, "Display octave shift clamps upper MIDI note range");
+
+    const int clampedLow = ScoreRenderer::applyDisplayOctaveShiftForView(2, -1, false);
+    expectTrue(clampedLow == 0, "Display octave shift clamps lower MIDI note range");
+
+    const int drumIgnored = ScoreRenderer::applyDisplayOctaveShiftForView(42, 1, true);
+    expectTrue(drumIgnored == 42, "Display octave shift is ignored for drum clef rendering");
+}
+
 void testScorePdfExportPageCountScalesWithBars()
 {
     auto shortModel = makeTestScoreModelWithBarCount(4);
@@ -908,6 +930,7 @@ int main()
     testScorePdfExportWritesValidPdf();
     testScorePdfExportPageCountScalesWithBars();
     testScorePdfExportFailsForEmptyStaff1OnlyMode();
+    testDisplayOctaveShiftForView();
     testMidiPlaybackAdapterSeekAndDispatch();
     testTrackMixProcessor();
     testTrackMixMidiSeed();
