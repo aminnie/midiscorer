@@ -11,6 +11,15 @@ struct TrackMixSettings
     bool solo = false;
 };
 
+inline bool operator==(const TrackMixSettings& lhs, const TrackMixSettings& rhs)
+{
+    return lhs.volume == rhs.volume
+        && lhs.reverb == rhs.reverb
+        && lhs.channel == rhs.channel
+        && lhs.muted == rhs.muted
+        && lhs.solo == rhs.solo;
+}
+
 class TrackMixState
 {
 public:

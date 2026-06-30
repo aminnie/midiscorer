@@ -1,6 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "StaffDisplayOctaveSelector.h"
 #include <array>
 #include <algorithm>
 #include <cmath>
@@ -57,10 +58,6 @@ public:
             refreshSavePresetButtonDirtyStyle();
         };
         addAndMakeVisible(staff1OctaveSelector);
-        staff1OctaveSelector.addItem("-", 1);
-        staff1OctaveSelector.addItem(juce::String::charToString(static_cast<juce_wchar>(0x2191)), 2);
-        staff1OctaveSelector.addItem(juce::String::charToString(static_cast<juce_wchar>(0x2193)), 3);
-        staff1OctaveSelector.setSelectedId(1, juce::dontSendNotification);
         staff1OctaveSelector.onChange = [this]
         {
             applyStaffDisplayOctaveFromSelectors(true);
@@ -85,10 +82,6 @@ public:
             refreshSavePresetButtonDirtyStyle();
         };
         addAndMakeVisible(staff2OctaveSelector);
-        staff2OctaveSelector.addItem("-", 1);
-        staff2OctaveSelector.addItem(juce::String::charToString(static_cast<juce_wchar>(0x2191)), 2);
-        staff2OctaveSelector.addItem(juce::String::charToString(static_cast<juce_wchar>(0x2193)), 3);
-        staff2OctaveSelector.setSelectedId(1, juce::dontSendNotification);
         staff2OctaveSelector.onChange = [this]
         {
             applyStaffDisplayOctaveFromSelectors(true);
@@ -113,10 +106,6 @@ public:
             refreshSavePresetButtonDirtyStyle();
         };
         addAndMakeVisible(staff3OctaveSelector);
-        staff3OctaveSelector.addItem("-", 1);
-        staff3OctaveSelector.addItem(juce::String::charToString(static_cast<juce_wchar>(0x2191)), 2);
-        staff3OctaveSelector.addItem(juce::String::charToString(static_cast<juce_wchar>(0x2193)), 3);
-        staff3OctaveSelector.setSelectedId(1, juce::dontSendNotification);
         staff3OctaveSelector.onChange = [this]
         {
             applyStaffDisplayOctaveFromSelectors(true);
@@ -552,6 +541,13 @@ public:
         loadMidiFileFromPath(resumeFile);
     }
 
+    enum class TrackMixSaveStatus
+    {
+        saved,
+        pending,
+        failed
+    };
+
     int getTrackMixTrackCount() const
     {
         return static_cast<int>(project.tracks.size());
@@ -634,6 +630,26 @@ public:
             return;
         trackMixState.setSolo(trackIndex, solo);
         onTrackMixStateChanged();
+    }
+
+    TrackMixSaveStatus getTrackMixSaveStatus() const
+    {
+        return trackMixSaveStatus;
+    }
+
+    juce::String getTrackMixSaveStatusText() const
+    {
+        if (getSongPresetKey().isEmpty())
+            return {};
+
+        switch (trackMixSaveStatus)
+        {
+            case TrackMixSaveStatus::pending: return "Mix settings changed - saving...";
+            case TrackMixSaveStatus::failed:  return "Mix settings save failed - use Save Preset to retry";
+            case TrackMixSaveStatus::saved:   return "Mix settings saved";
+        }
+
+        return {};
     }
 
     std::vector<MidiOutputDeviceInfo> getAvailableMidiOutputs() const
@@ -1212,6 +1228,34 @@ private:
             applySavePresetButtonCleanStyle();
     }
 
+    std::vector<TrackMixSettings> buildCurrentTrackMixSnapshot() const
+    {
+        std::vector<TrackMixSettings> snapshot;
+        snapshot.reserve(static_cast<size_t>(trackMixState.getTrackCount()));
+        for (int i = 0; i < trackMixState.getTrackCount(); ++i)
+        {
+            snapshot.push_back({
+                trackMixState.getVolume(i),
+                trackMixState.getReverb(i),
+                trackMixState.getChannel(i),
+                trackMixState.isMuted(i),
+                trackMixState.isSolo(i)
+            });
+        }
+        return snapshot;
+    }
+
+    void markTrackMixAsSaved()
+    {
+        savedTrackMixSnapshot = buildCurrentTrackMixSnapshot();
+        trackMixSaveStatus = TrackMixSaveStatus::saved;
+    }
+
+    bool isTrackMixDirty() const
+    {
+        return buildCurrentTrackMixSnapshot() != savedTrackMixSnapshot;
+    }
+
     static bool trackHasChordSourceContent(const MidiTrackData& track)
     {
         if (!track.notes.empty())
@@ -1234,6 +1278,7 @@ private:
     {
         if (playbackController.isPlaying())
             midiOutputDevice.sendAllNotesOff();
+        trackMixSaveStatus = TrackMixSaveStatus::pending;
         scheduleDebouncedTrackMixPresetSave();
         refreshStatusMessage();
     }
@@ -1695,6 +1740,7 @@ private:
         {
             rebuildAllStaffs();
             markCurrentScoreSongSettingsAsSaved();
+            markTrackMixAsSaved();
             refreshSavePresetButtonDirtyStyle();
         }
         setStatusMessage(autoPresetLoaded
@@ -2111,7 +2157,15 @@ private:
         juce::String writeError;
         const bool saveOk = PresetFileStore::writeTextFileAtomically(file, juce::JSON::toString(payload), writeError);
         if (saveOk)
+        {
             markCurrentScoreSongSettingsAsSaved();
+            if (songKey.isNotEmpty())
+                markTrackMixAsSaved();
+        }
+        else
+        {
+            trackMixSaveStatus = TrackMixSaveStatus::failed;
+        }
         refreshSavePresetButtonDirtyStyle();
         if (showStatusMessage)
         {
@@ -2367,6 +2421,7 @@ private:
         applyLoopBoundsFromInputs(false);
 
         applyTrackMixFromPreset(*obj);
+        markTrackMixAsSaved();
         applyScoreColorScheme();
 
         rebuildAllStaffs();
@@ -2957,15 +3012,15 @@ private:
     juce::TextButton loadButton;
     juce::Label staff1TrackLabel;
     juce::ComboBox staff1TrackSelector;
-    juce::ComboBox staff1OctaveSelector;
+    StaffDisplayOctaveSelector staff1OctaveSelector;
     juce::ComboBox staff1ClefSelector;
     juce::Label staff2TrackLabel;
     juce::ComboBox staff2TrackSelector;
-    juce::ComboBox staff2OctaveSelector;
+    StaffDisplayOctaveSelector staff2OctaveSelector;
     juce::ComboBox staff2ClefSelector;
     juce::Label staff3TrackLabel;
     juce::ComboBox staff3TrackSelector;
-    juce::ComboBox staff3OctaveSelector;
+    StaffDisplayOctaveSelector staff3OctaveSelector;
     juce::ComboBox staff3ClefSelector;
     juce::TextButton transportToggleButton;
     juce::ComboBox accidentalSelector;
@@ -3034,6 +3089,8 @@ private:
     juce::String statusMessageBase;
     juce::String savedScoreSongKey;
     std::optional<ScoreSongSettingsSnapshot> savedScoreSongSettingsSnapshot;
+    std::vector<TrackMixSettings> savedTrackMixSnapshot;
+    TrackMixSaveStatus trackMixSaveStatus = TrackMixSaveStatus::saved;
     std::optional<double> tempoOverrideBpm;
     std::optional<ParsedKey> keyOverride;
     bool keyOverrideProfileOnly = false;

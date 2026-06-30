@@ -851,6 +851,22 @@ void testTrackMixMidiSeed()
     expectTrue(state.getChannel(0) == 8, "Saved preset channel remains after manual set");
 }
 
+void testTrackMixSnapshotComparison()
+{
+    std::vector<TrackMixSettings> baseline
+    {
+        { 100, 10, 1, false, false },
+        { 90, 15, 2, true, false }
+    };
+
+    std::vector<TrackMixSettings> same = baseline;
+    expectTrue(same == baseline, "Track mix snapshot comparison treats identical states as equal");
+
+    auto modified = baseline;
+    modified[1].reverb = 16;
+    expectTrue(!(modified == baseline), "Track mix snapshot comparison detects changed reverb");
+}
+
 void testTempoTimeSigFixtureBehavior()
 {
     const auto fixture = getTestFixtureFile("tempo_time_sig.mid");
@@ -1096,6 +1112,7 @@ int main()
     testMidiPlaybackAdapterSeekAndDispatch();
     testTrackMixProcessor();
     testTrackMixMidiSeed();
+    testTrackMixSnapshotComparison();
     testKeyOverrideTranspose();
     testCheckedInFixturesLoad();
 

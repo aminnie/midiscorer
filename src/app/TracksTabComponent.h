@@ -13,16 +13,23 @@ public:
     explicit TracksTabComponent(MainComponent& scorePageRef)
         : scorePage(scorePageRef)
     {
+        addAndMakeVisible(mixSaveStatusLabel);
+        mixSaveStatusLabel.setJustificationType(juce::Justification::centredLeft);
+
         addAndMakeVisible(viewport);
         viewport.setViewedComponent(&content, false);
         viewport.setScrollBarsShown(true, false);
+        refreshMixSaveStatus();
         refreshTrackRows();
         startTimerHz(2);
     }
 
     void resized() override
     {
-        viewport.setBounds(getLocalBounds().reduced(8));
+        auto bounds = getLocalBounds().reduced(8);
+        mixSaveStatusLabel.setBounds(bounds.removeFromTop(22));
+        bounds.removeFromTop(4);
+        viewport.setBounds(bounds);
         layoutRows();
     }
 
@@ -53,6 +60,8 @@ private:
 
     void timerCallback() override
     {
+        refreshMixSaveStatus();
+
         if (refreshPending)
         {
             refreshPending = false;
@@ -209,6 +218,31 @@ private:
         content.setSize(contentWidth, juce::jmax(y, bounds.getHeight()));
     }
 
+    void refreshMixSaveStatus()
+    {
+        const auto text = scorePage.getTrackMixSaveStatusText();
+        if (text.isEmpty())
+        {
+            mixSaveStatusLabel.setVisible(false);
+            return;
+        }
+
+        mixSaveStatusLabel.setVisible(true);
+        mixSaveStatusLabel.setText(text, juce::dontSendNotification);
+        switch (scorePage.getTrackMixSaveStatus())
+        {
+            case MainComponent::TrackMixSaveStatus::saved:
+                mixSaveStatusLabel.setColour(juce::Label::textColourId, juce::Colours::lightgreen);
+                break;
+            case MainComponent::TrackMixSaveStatus::pending:
+                mixSaveStatusLabel.setColour(juce::Label::textColourId, juce::Colours::orange);
+                break;
+            case MainComponent::TrackMixSaveStatus::failed:
+                mixSaveStatusLabel.setColour(juce::Label::textColourId, juce::Colours::red);
+                break;
+        }
+    }
+
     void applyChannelInput(int trackIndex, juce::TextEditor* input)
     {
         if (input == nullptr)
@@ -222,6 +256,7 @@ private:
     }
 
     MainComponent& scorePage;
+    juce::Label mixSaveStatusLabel;
     juce::Viewport viewport;
     juce::Component content;
     std::vector<std::unique_ptr<TrackRow>> rows;
