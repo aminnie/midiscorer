@@ -106,6 +106,7 @@ public:
         else
             chords = ChordDetector::detect(chordAnalysisNotes, ctx.project->tempoMap, ctx.project->maxBar, namingOptions, chordResolution);
         lane.model->build(ctx.project->tempoMap, quantized, chords, ctx.project->maxBar);
+
         lane.renderer->setStaffLabel(track.name);
         lane.renderer->setClefType(clefType);
         if (ctx.playbackController != nullptr)
@@ -162,15 +163,90 @@ public:
         const int bar = ctx.hasLoadedProject && ctx.hasLoadedProject()
             ? juce::jlimit(1, juce::jmax(1, ctx.project->maxBar), ctx.playbackController->getCurrentBar())
             : 1;
+        auto selectedBar = bar;
+
+        auto countNonRestInWindow = [](const ScoreModel& model, int centerBar) -> int
+        {
+            int count = 0;
+            const auto bars = model.getWindowBars(centerBar, 2, 2);
+            for (const auto& windowBar : bars)
+                for (const auto& symbol : windowBar.notes)
+                    if (!symbol.isRest)
+                        ++count;
+            return count;
+        };
+
+        auto firstNonRestBar = [](const ScoreModel& model) -> int
+        {
+            if (model.empty())
+                return 0;
+
+            const auto bars = model.getBarsInRange(model.getFirstBar(), model.getLastBar());
+            for (const auto& modelBar : bars)
+            {
+                for (const auto& symbol : modelBar.notes)
+                {
+                    if (!symbol.isRest)
+                        return modelBar.barNumber;
+                }
+            }
+            return 0;
+        };
+
+        if (ctx.playbackController != nullptr
+            && !ctx.playbackController->isPlaying()
+            && selectedBar == 1)
+        {
+            int staff1WindowNonRest = 0;
+            int staff1FirstNonRestBar = 0;
+            if (lanes[0].model != nullptr)
+            {
+                staff1WindowNonRest = countNonRestInWindow(*lanes[0].model, selectedBar);
+                staff1FirstNonRestBar = firstNonRestBar(*lanes[0].model);
+            }
+
+            if (staff1WindowNonRest == 0 && staff1FirstNonRestBar > 0)
+            {
+                selectedBar = staff1FirstNonRestBar;
+            }
+            else
+            {
+                int visibleWindowNonRest = 0;
+                for (const auto& lane : lanes)
+                {
+                    if (lane.model == nullptr || lane.model->empty())
+                        continue;
+                    visibleWindowNonRest += countNonRestInWindow(*lane.model, selectedBar);
+                }
+
+                if (visibleWindowNonRest == 0)
+                {
+                    int earliestNonRestBar = std::numeric_limits<int>::max();
+                    for (const auto& lane : lanes)
+                    {
+                        if (lane.model == nullptr || lane.model->empty())
+                            continue;
+
+                        const int laneFirstNonRest = firstNonRestBar(*lane.model);
+                        if (laneFirstNonRest > 0)
+                            earliestNonRestBar = juce::jmin(earliestNonRestBar, laneFirstNonRest);
+                    }
+
+                    if (earliestNonRestBar != std::numeric_limits<int>::max())
+                        selectedBar = earliestNonRestBar;
+                }
+            }
+        }
+
         for (const auto& lane : lanes)
         {
             if (lane.renderer != nullptr)
-                lane.renderer->setCurrentBar(bar);
+                lane.renderer->setCurrentBar(selectedBar);
         }
         if (ctx.transportLabel != nullptr)
-            ctx.transportLabel->setText("Bar " + juce::String(bar), juce::dontSendNotification);
+            ctx.transportLabel->setText("Bar " + juce::String(selectedBar), juce::dontSendNotification);
         if (ctx.displayedBar != nullptr)
-            *ctx.displayedBar = bar;
+            *ctx.displayedBar = selectedBar;
 
         int selectedTrackCount = 0;
         if (ctx.chordTrackButtons != nullptr)

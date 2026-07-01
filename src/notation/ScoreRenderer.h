@@ -802,6 +802,7 @@ private:
             g.setColour(noteColour);
             g.drawLine(xA, yA, xB, yB, 2.0f);
         }
+
     }
 
     const ScoreModel* model = nullptr;

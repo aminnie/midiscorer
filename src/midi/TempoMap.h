@@ -113,13 +113,12 @@ public:
 
             cur.quarterAtTick = tickToQuarter(cur.tick);
             const double deltaQuarter = juce::jmax(0.0, cur.quarterAtTick - prev.quarterAtTick);
-            const double deltaBeats = deltaQuarter * static_cast<double>(prev.denominator) / 4.0;
-            const double beatsPerBar = static_cast<double>(prev.numerator) * 4.0 / static_cast<double>(prev.denominator);
-            const double totalBeats = prev.beatsIntoBarAtStart + deltaBeats;
-            const int barsAdvanced = static_cast<int>(std::floor((totalBeats + 1.0e-9) / beatsPerBar));
+            const double quartersPerBar = static_cast<double>(prev.numerator) * 4.0 / static_cast<double>(prev.denominator);
+            const double totalQuarterIntoBar = prev.beatsIntoBarAtStart + deltaQuarter;
+            const int barsAdvanced = static_cast<int>(std::floor((totalQuarterIntoBar + 1.0e-9) / quartersPerBar));
 
             cur.barAtStart = juce::jmax(1, prev.barAtStart + barsAdvanced);
-            cur.beatsIntoBarAtStart = totalBeats - static_cast<double>(barsAdvanced) * beatsPerBar;
+            cur.beatsIntoBarAtStart = totalQuarterIntoBar - static_cast<double>(barsAdvanced) * quartersPerBar;
         }
 
         return true;
@@ -183,10 +182,9 @@ public:
 
         const auto& sig = timeSignatureEvents[(size_t) idx];
         const double deltaQuarter = juce::jmax(0.0, q - sig.quarterAtTick);
-        const double deltaBeats = deltaQuarter * static_cast<double>(sig.denominator) / 4.0;
-        const double beatsPerBar = static_cast<double>(sig.numerator) * 4.0 / static_cast<double>(sig.denominator);
-        const double totalBeats = sig.beatsIntoBarAtStart + deltaBeats;
-        const int barsAdvanced = static_cast<int>(std::floor((totalBeats + 1.0e-9) / beatsPerBar));
+        const double quartersPerBar = static_cast<double>(sig.numerator) * 4.0 / static_cast<double>(sig.denominator);
+        const double totalQuarterIntoBar = sig.beatsIntoBarAtStart + deltaQuarter;
+        const int barsAdvanced = static_cast<int>(std::floor((totalQuarterIntoBar + 1.0e-9) / quartersPerBar));
         return juce::jmax(1, sig.barAtStart + barsAdvanced);
     }
 
@@ -210,9 +208,9 @@ public:
 
         const auto& sig = timeSignatureEvents[(size_t) idx];
         const auto barsFromSig = juce::jmax(0, target - sig.barAtStart);
-        const double beatsPerBar = static_cast<double>(sig.numerator) * 4.0 / static_cast<double>(sig.denominator);
-        const double deltaBeats = static_cast<double>(barsFromSig) * beatsPerBar;
-        return sig.quarterAtTick + deltaBeats * static_cast<double>(sig.denominator) / 4.0;
+        const double quartersPerBar = static_cast<double>(sig.numerator) * 4.0 / static_cast<double>(sig.denominator);
+        const double deltaQuarter = static_cast<double>(barsFromSig) * quartersPerBar;
+        return sig.quarterAtTick + deltaQuarter;
     }
 
     double barToSecondsDownbeat(int barNumber) const
