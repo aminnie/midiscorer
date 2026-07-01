@@ -1736,6 +1736,14 @@ private:
         midiMetaLabel.setText(buildMidiMetaText(), juce::dontSendNotification);
         assignDefaultStaffSelections();
         const bool autoPresetLoaded = loadUiPreset(true);
+        if (!tempoOverrideBpm.has_value())
+        {
+            const auto detectedTempo = getDetectedTempoBpm();
+            if (detectedTempo.has_value())
+                tempoOverrideInput.setText(juce::String(detectedTempo.value(), 1), juce::dontSendNotification);
+            else
+                tempoOverrideInput.setText({}, juce::dontSendNotification);
+        }
         if (!autoPresetLoaded)
         {
             rebuildAllStaffs();
@@ -2129,9 +2137,8 @@ private:
             else
                 keyOverridesBySong->removeProperty(songId);
 
-            const auto songTempoText = tempoOverrideInput.getText().trim();
-            if (songTempoText.isNotEmpty())
-                tempoOverridesBySong->setProperty(songId, songTempoText);
+            if (tempoOverrideBpm.has_value())
+                tempoOverridesBySong->setProperty(songId, juce::String(tempoOverrideBpm.value(), 1));
             else
                 tempoOverridesBySong->removeProperty(songId);
 
@@ -2380,16 +2387,11 @@ private:
         }
         pendingKeyTransposeReferenceTonicPc = std::nullopt;
         const auto songTempoOverride = getSongTempoOverrideFromPreset(*obj);
-        if (songTempoOverride.isNotEmpty())
+        const bool applySongTempoOverride = !silent && songTempoOverride.isNotEmpty();
+        if (applySongTempoOverride)
             tempoOverrideInput.setText(songTempoOverride, juce::dontSendNotification);
         else
-        {
-            const bool tempoOverrideEnabled = getIntProperty("tempoOverrideEnabled", 0) != 0;
-            if (tempoOverrideEnabled && obj->hasProperty("tempoOverrideText"))
-                tempoOverrideInput.setText(obj->getProperty("tempoOverrideText").toString(), juce::dontSendNotification);
-            else
-                tempoOverrideInput.setText({}, juce::dontSendNotification);
-        }
+            tempoOverrideInput.setText({}, juce::dontSendNotification);
         applyTempoOverrideFromInput(false);
 
         loopEnabled = getIntProperty("loopEnabled", 0) != 0;
