@@ -776,6 +776,14 @@ private:
                 tiePath.addArc(x + w - 2.0f, y + 5.0f, 16.0f, 8.0f, 0.2f, 2.9f, true);
                 g.strokePath(tiePath, juce::PathStrokeType(1.0f));
             }
+
+            if (note.tieFromPreviousBar)
+            {
+                g.setColour(tieColour);
+                juce::Path tiePath;
+                tiePath.addArc(x - 12.0f, y + 5.0f, 16.0f, 8.0f, 0.2f, 2.9f, true);
+                g.strokePath(tiePath, juce::PathStrokeType(1.0f));
+            }
         }
 
         for (size_t i = 1; i < bar.notes.size(); ++i)

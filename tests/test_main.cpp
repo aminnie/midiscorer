@@ -417,12 +417,17 @@ void testScoreModelSplitsCrossBarNotes()
     expectTrue(bar1TieFound, "Start-bar note ties into next bar");
 
     bool bar2ContinuationFound = false;
+    bool bar2TieFromPreviousFound = false;
     for (const auto& note : bars[1].notes)
     {
         if (!note.isRest && note.midiNote == 60 && std::abs(note.quarterInBar) < 1.0e-6)
+        {
             bar2ContinuationFound = true;
+            bar2TieFromPreviousFound = note.tieFromPreviousBar;
+        }
     }
     expectTrue(bar2ContinuationFound, "Continuation note is present at next bar downbeat");
+    expectTrue(bar2TieFromPreviousFound, "Continuation note is marked as tied from previous bar");
 }
 
 void testChordDetectorResetsAcrossSilence()
