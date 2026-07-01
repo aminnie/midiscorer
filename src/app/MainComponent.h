@@ -577,6 +577,11 @@ public:
         return trackMixState.getReverb(trackIndex);
     }
 
+    int getTrackMixExpression(int trackIndex) const
+    {
+        return trackMixState.getExpression(trackIndex);
+    }
+
     int getTrackMixChannel(int trackIndex) const
     {
         return trackMixState.getChannel(trackIndex);
@@ -605,6 +610,14 @@ public:
         if (!trackMixState.isValidTrack(trackIndex))
             return;
         trackMixState.setReverb(trackIndex, reverb);
+        onTrackMixStateChanged();
+    }
+
+    void setTrackMixExpression(int trackIndex, int expression)
+    {
+        if (!trackMixState.isValidTrack(trackIndex))
+            return;
+        trackMixState.setExpression(trackIndex, expression);
         onTrackMixStateChanged();
     }
 
@@ -1236,6 +1249,7 @@ private:
         {
             snapshot.push_back({
                 trackMixState.getVolume(i),
+                trackMixState.getExpression(i),
                 trackMixState.getReverb(i),
                 trackMixState.getChannel(i),
                 trackMixState.isMuted(i),
@@ -1943,6 +1957,8 @@ private:
 
             if (entryObj->hasProperty("volume"))
                 trackMixState.setVolume(i, static_cast<int>(entryObj->getProperty("volume")));
+            if (entryObj->hasProperty("expression"))
+                trackMixState.setExpression(i, static_cast<int>(entryObj->getProperty("expression")));
             if (entryObj->hasProperty("reverb"))
                 trackMixState.setReverb(i, static_cast<int>(entryObj->getProperty("reverb")));
             if (entryObj->hasProperty("channel"))
@@ -1961,6 +1977,7 @@ private:
         {
             auto entry = std::make_unique<juce::DynamicObject>();
             entry->setProperty("volume", trackMixState.getVolume(i));
+            entry->setProperty("expression", trackMixState.getExpression(i));
             entry->setProperty("reverb", trackMixState.getReverb(i));
             entry->setProperty("channel", trackMixState.getChannel(i));
             entry->setProperty("mute", trackMixState.isMuted(i));

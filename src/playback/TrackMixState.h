@@ -5,6 +5,7 @@
 struct TrackMixSettings
 {
     int volume = 100;
+    int expression = 100;
     int reverb = 10;
     int channel = 1;
     bool muted = false;
@@ -14,6 +15,7 @@ struct TrackMixSettings
 inline bool operator==(const TrackMixSettings& lhs, const TrackMixSettings& rhs)
 {
     return lhs.volume == rhs.volume
+        && lhs.expression == rhs.expression
         && lhs.reverb == rhs.reverb
         && lhs.channel == rhs.channel
         && lhs.muted == rhs.muted
@@ -64,6 +66,13 @@ public:
         return tracks[(size_t) trackIndex].reverb;
     }
 
+    int getExpression(int trackIndex) const
+    {
+        if (!isValidTrack(trackIndex))
+            return 100;
+        return tracks[(size_t) trackIndex].expression;
+    }
+
     int getChannel(int trackIndex) const
     {
         if (!isValidTrack(trackIndex))
@@ -105,6 +114,17 @@ public:
         if (reverb > 127)
             reverb = 127;
         tracks[(size_t) trackIndex].reverb = reverb;
+    }
+
+    void setExpression(int trackIndex, int expression)
+    {
+        if (!isValidTrack(trackIndex))
+            return;
+        if (expression < 0)
+            expression = 0;
+        if (expression > 127)
+            expression = 127;
+        tracks[(size_t) trackIndex].expression = expression;
     }
 
     void setChannel(int trackIndex, int channel)

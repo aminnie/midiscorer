@@ -10,9 +10,11 @@ class TrackMixMidiSeed
 {
 public:
     static constexpr int kDefaultVolume = 100;
+    static constexpr int kDefaultExpression = 100;
     static constexpr int kDefaultReverb = 10;
     static constexpr int kDefaultChannel = 1;
     static constexpr int kVolumeController = 7;
+    static constexpr int kExpressionController = 11;
 
     static std::optional<int> findFirstChannel(const juce::MidiMessageSequence& sequence)
     {
@@ -62,6 +64,12 @@ public:
         return cc.has_value() ? juce::jlimit(0, 127, *cc) : kDefaultReverb;
     }
 
+    static int expressionFromTrackSequence(const juce::MidiMessageSequence& sequence)
+    {
+        const auto cc = findLastControllerValue(sequence, kExpressionController);
+        return cc.has_value() ? juce::jlimit(0, 127, *cc) : kDefaultExpression;
+    }
+
     static int channelFromTrackSequence(const juce::MidiMessageSequence& sequence)
     {
         const auto channel = findFirstChannel(sequence);
@@ -74,6 +82,7 @@ public:
         for (int i = 0; i < static_cast<int>(sequences.size()); ++i)
         {
             mixState.setVolume(i, volumeFromTrackSequence(sequences[(size_t) i]));
+            mixState.setExpression(i, expressionFromTrackSequence(sequences[(size_t) i]));
             mixState.setReverb(i, reverbFromTrackSequence(sequences[(size_t) i]));
             mixState.setChannel(i, channelFromTrackSequence(sequences[(size_t) i]));
         }

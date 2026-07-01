@@ -40,6 +40,8 @@ private:
         std::unique_ptr<juce::GroupComponent> group;
         std::unique_ptr<juce::Label> volumeLabel;
         std::unique_ptr<juce::Slider> volumeSlider;
+        std::unique_ptr<juce::Label> expressionLabel;
+        std::unique_ptr<juce::Slider> expressionSlider;
         std::unique_ptr<juce::Label> reverbLabel;
         std::unique_ptr<juce::Slider> reverbSlider;
         std::unique_ptr<juce::Label> channelLabel;
@@ -85,6 +87,7 @@ private:
         {
             signature << "|" << scorePage.getTrackDisplayName(i)
                       << "|" << juce::String(scorePage.getTrackMixVolume(i))
+                      << "|" << juce::String(scorePage.getTrackMixExpression(i))
                       << "|" << juce::String(scorePage.getTrackMixReverb(i))
                       << "|" << juce::String(scorePage.getTrackMixChannel(i))
                       << "|" << juce::String(scorePage.isTrackMuted(i) ? 1 : 0)
@@ -145,6 +148,24 @@ private:
                 trackSignature = buildTrackSignature();
             };
             content.addAndMakeVisible(*row->reverbSlider);
+
+            row->expressionLabel = std::make_unique<juce::Label>();
+            row->expressionLabel->setText("Expression", juce::dontSendNotification);
+            row->expressionLabel->setJustificationType(juce::Justification::centredRight);
+            content.addAndMakeVisible(*row->expressionLabel);
+
+            row->expressionSlider = std::make_unique<juce::Slider>();
+            row->expressionSlider->setRange(0.0, 127.0, 1.0);
+            row->expressionSlider->setSliderStyle(juce::Slider::LinearHorizontal);
+            row->expressionSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 56, 22);
+            styleMixSlider(*row->expressionSlider);
+            row->expressionSlider->setValue(scorePage.getTrackMixExpression(i), juce::dontSendNotification);
+            row->expressionSlider->onValueChange = [this, idx = i, slider = row->expressionSlider.get()]
+            {
+                scorePage.setTrackMixExpression(idx, static_cast<int>(std::round(slider->getValue())));
+                trackSignature = buildTrackSignature();
+            };
+            content.addAndMakeVisible(*row->expressionSlider);
 
             row->channelLabel = std::make_unique<juce::Label>();
             row->channelLabel->setText("Chan", juce::dontSendNotification);
@@ -210,6 +231,8 @@ private:
             row->soloToggle->setBounds(controls.removeFromLeft(88).reduced(4, 0));
             row->volumeLabel->setBounds(controls.removeFromLeft(72));
             row->volumeSlider->setBounds(controls.removeFromLeft(200).reduced(4, 0));
+            row->expressionLabel->setBounds(controls.removeFromLeft(88));
+            row->expressionSlider->setBounds(controls.removeFromLeft(200).reduced(4, 0));
             row->reverbLabel->setBounds(controls.removeFromLeft(64));
             row->reverbSlider->setBounds(controls.removeFromLeft(200).reduced(4, 0));
             y += rowHeight + gap;

@@ -83,12 +83,12 @@ This checklist tracks code-review findings and implementation work items.
   - Acceptance:
     - Scheduled events carry `sourceTrackIndex`.
     - Playback mix gate supports mute/solo precedence.
-    - Track volume scales note-on and CC7/CC11 messages.
-- [x] Add Effects tab UI for grouped Volume/Mute/Solo controls.
+    - Track note-on velocity compounds volume/expression scaling and CC scaling applies to CC7/CC11 respectively.
+- [x] Add Effects tab UI for grouped Volume/Expression/Mute/Solo controls.
   - Files: `src/app/TracksTabComponent.h`, `src/app/AppTabsHost.h`, `src/app/MainComponent.h`
   - Acceptance:
     - New `Effects` tab appears beside `Score` and `Player`.
-    - Eligible tracks show bordered groups named by track with volume slider and mute/solo checkboxes.
+    - Eligible tracks show bordered groups named by track with volume/expression sliders and mute/solo checkboxes.
 - [x] Persist per-song track mix values in preset profile.
   - Files: `src/app/MainComponent.h`
   - Acceptance:
@@ -102,11 +102,11 @@ This checklist tracks code-review findings and implementation work items.
   - Acceptance:
     - Effects tab shows Reverb slider per eligible track.
     - CC91 events merge with per-track reverb during playback.
-- [x] Seed Volume/Reverb sliders from MIDI track CC values.
+- [x] Seed Volume/Expression/Reverb sliders from MIDI track CC values.
   - Files: `src/playback/TrackMixMidiSeed.h`, `src/app/MainComponent.h`, `tests/test_main.cpp`
   - Acceptance:
-    - Last CC7/CC91 per track seeds slider values on load.
-    - Missing CC defaults to volume 100 / reverb 10.
+    - Last CC7/CC11/CC91 per track seeds slider values on load.
+    - Missing CC defaults to volume 100 / expression 100 / reverb 10.
     - Saved `trackMixBySong` entries override seeded values.
 - [x] Score tab status and preset UX refinements.
   - Files: `src/app/MainComponent.h`, `src/app/AppTabsHost.h`

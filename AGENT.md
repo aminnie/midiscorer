@@ -34,9 +34,9 @@ Use these modules as the source of truth for each concern:
 - `src/harmony/ChordDetector.h` - chord detection + naming policy
 - `src/app/ScorePdfExporter.h` - full-song score PDF pagination/export orchestration
 - `src/playback/PlaybackController.h` - playback time/bar state
-- `src/playback/TrackMixState.h` - per-track mix state (channel, volume, reverb, mute, solo)
+- `src/playback/TrackMixState.h` - per-track mix state (channel, volume, expression, reverb, mute, solo)
 - `src/playback/TrackMixProcessor.h` - playback mix gating, channel remap, scaling
-- `src/playback/TrackMixMidiSeed.h` - Chan/CC7/CC91 seeding on load
+- `src/playback/TrackMixMidiSeed.h` - Chan/CC7/CC11/CC91 seeding on load
 - `src/app/MainComponent.h` - orchestration/UI wiring (Score tab)
 - `src/app/TracksTabComponent.h` - Effects tab mix UI
 - `src/app/AppTabsHost.h` - tab host (`Start`, `Score`, `Effects`)

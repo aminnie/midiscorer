@@ -47,12 +47,12 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
   - single selected MIDI output device (GM-oriented output path)
   - persisted selected output device identifier under `Documents/MidiScorer/midi_output.json`
 - Per-track playback mix:
-  - per eligible MIDI track controls for **Chan** (1..16), **Mute**, **Solo**, **Volume**, and **Reverb** (0..127)
-  - on load, **Chan** seeds from the track's first non-meta MIDI channel (default **1**); volume/reverb seed from the track's last **CC7** / **CC91** when present; otherwise defaults are **100** / **10**
+  - per eligible MIDI track controls for **Chan** (1..16), **Mute**, **Solo**, **Volume**, **Expression**, and **Reverb** (0..127)
+  - on load, **Chan** seeds from the track's first non-meta MIDI channel (default **1**); volume/expression/reverb seed from the track's last **CC7** / **CC11** / **CC91** when present; otherwise defaults are **100** / **100** / **10**
   - saved per-song mix in `ui_preset.json` (`trackMixBySong`) overrides MIDI-seeded values after edit/save
   - grouped controls by track name in the `Effects` tab (AMidiOrgan-style slider colors)
   - **Chan** remaps outgoing playback events (notes, program change, CC, etc.) to the chosen output channel
-  - volume scales note-on velocity and CC7/CC11 during playback; reverb merges CC91 during playback
+  - note-on velocity is compounded by volume/expression (`volume * expression`), volume scales CC7, expression scales CC11, and reverb merges CC91 during playback
   - use **Chan** changes if you need to reorganize channels in order to play along with the score and MIDI file while playing an instrument that shares the selected MIDI module
 - Per-song score overrides (stored in `Documents/MidiScorer/ui_preset.json`):
   - transpose per song under `transposeOverridesBySong`
@@ -92,7 +92,7 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
 - `src/app/MainComponent.h` - score page UI controls, notation orchestration, playback sync
 - `src/app/ScorePdfExporter.h` - full-song score pagination/export assembly
 - `src/app/PlayerTabComponent.h` - player page MIDI output selection
-- `src/app/TracksTabComponent.h` - Effects tab (per-track Chan/Mute/Solo/Volume/Reverb)
+- `src/app/TracksTabComponent.h` - Effects tab (per-track Chan/Mute/Solo/Volume/Expression/Reverb)
 - `src/resources/icons/app-icon-master.png` - application icon source (1024×1024 ARGB; embedded on Windows via CMake)
 - `src/resources/icons/MidiScorer.icns` - macOS bundle icon (generate with `scripts/build-macos-icon.sh`)
 - `src/midi/TempoMap.h` - tempo/time-signature/bar conversion
@@ -108,7 +108,7 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
 - `src/playback/IPlaybackPositionSource.h` - transport position abstraction boundary
 - `src/playback/MidiFilePlaybackEngineAdapter.h` - scheduled MIDI-event playback adapter
 - `src/playback/MidiOutputDevice.h` - single-output MIDI device abstraction
-- `src/playback/TrackMixState.h` - per-track channel/volume/reverb/mute/solo state
+- `src/playback/TrackMixState.h` - per-track channel/volume/expression/reverb/mute/solo state
 - `src/playback/TrackMixProcessor.h` - playback gating, channel remap, and per-track message scaling/merge
 - `src/playback/TrackMixMidiSeed.h` - seed Chan and mix sliders from track sequences on load
 - `tests/test_main.cpp` - core tests
@@ -158,7 +158,7 @@ open "build-mac/MidiScorer_artefacts/Debug/MidiScorer.app"
    - live chord marker overlays are excluded from static export
 10. Use **Start** tab to select a MIDI output device.
 11. Use **Score** tab **Start/Stop**, **Continue**, and **Bar** for playback transport.
-12. Use **Effects** tab to adjust per-track **Chan**, Mute, Solo, Volume, and Reverb.
+12. Use **Effects** tab to adjust per-track **Chan**, Mute, Solo, Volume, Expression, and Reverb.
     - Use **Chan** changes if you need to reorganize channels in order to play along with the score and MIDI file while playing an instrument that shares the selected MIDI module.
 
 ## Notes and known limitations
@@ -175,9 +175,10 @@ open "build-mac/MidiScorer_artefacts/Debug/MidiScorer.app"
 - PDF export is rendered page output (JPEG-backed pages in PDF), not vector engraving.
 - Track mix controls apply per source MIDI track:
   - **Chan** remaps outgoing playback to the selected MIDI channel (1..16)
-  - volume scales note-on velocity and CC7/CC11
+  - note-on velocity is compounded by volume/expression (`volume * expression`)
+  - volume scales CC7 and expression scales CC11
   - reverb merges CC91 when present in the file
-  - **Chan** seeds from the track's first channel on load (default 1); volume/reverb seed from last CC7/CC91 per track (defaults 100/10) unless overridden by saved preset
+  - **Chan** seeds from the track's first channel on load (default 1); volume/expression/reverb seed from last CC7/CC11/CC91 per track (defaults 100/100/10) unless overridden by saved preset
 
 ## Developer notes
 

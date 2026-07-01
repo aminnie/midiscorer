@@ -86,7 +86,7 @@ At minimum before submitting:
    - verify Save/Load Preset on Score row 1 and Save Preset red dirty indicator
    - verify `No Display` selections round-trip via Save Preset / Load Preset
    - verify `No Display` lanes are excluded from PDF export lane output
-   - verify Effects tab Chan/Mute/Solo/Volume/Reverb controls; Chan seeds from track channel (default 1); volume/reverb CC-seeded defaults (100/10)
+  - verify Effects tab Chan/Mute/Solo/Volume/Expression/Reverb controls; Chan seeds from track channel (default 1); volume/expression/reverb CC-seeded defaults (100/100/10)
 
 ## PR checklist
 

@@ -840,6 +840,19 @@ void testTrackMixProcessor()
     expectTrue(scaledCc7.isController() && scaledCc7.getControllerNumber() == 7, "Track mix preserves CC7 type");
     expectTrue(scaledCc7.getControllerValue() < cc7.getControllerValue(), "Track mix scales CC7 value");
 
+    state.setVolume(1, 127);
+    state.setExpression(1, 64);
+    auto cc11 = juce::MidiMessage::controllerEvent(1, TrackMixProcessor::kExpressionController, 100);
+    auto scaledCc11 = TrackMixProcessor::applyVolumeToMessage(cc11, 1, state);
+    expectTrue(scaledCc11.isController() && scaledCc11.getControllerNumber() == TrackMixProcessor::kExpressionController,
+               "Track mix preserves CC11 type");
+    expectTrue(scaledCc11.getControllerValue() < cc11.getControllerValue(), "Track mix scales CC11 value by expression");
+
+    auto noteOnNoExpressionImpact = juce::MidiMessage::noteOn(1, 64, (juce::uint8) 100);
+    auto expressionScaledNote = TrackMixProcessor::applyVolumeToMessage(noteOnNoExpressionImpact, 1, state);
+    expectTrue(expressionScaledNote.getVelocity() < noteOnNoExpressionImpact.getVelocity(),
+               "Track mix expression compounds note-on velocity scaling");
+
     state.setReverb(1, 64);
     auto cc91 = juce::MidiMessage::controllerEvent(1, TrackMixProcessor::kReverbController, 100);
     auto scaledCc91 = TrackMixProcessor::applyVolumeToMessage(cc91, 1, state);
@@ -862,22 +875,28 @@ void testTrackMixMidiSeed()
 
     TrackMixMidiSeed::applyFromTrackSequences({ sequence }, state);
     expectTrue(state.getVolume(0) == TrackMixMidiSeed::kDefaultVolume, "Missing CC7 defaults volume to 100");
+    expectTrue(state.getExpression(0) == TrackMixMidiSeed::kDefaultExpression, "Missing CC11 defaults expression to 100");
     expectTrue(state.getReverb(0) == TrackMixMidiSeed::kDefaultReverb, "Missing CC91 defaults reverb to 10");
     expectTrue(state.getChannel(0) == TrackMixMidiSeed::kDefaultChannel, "Missing channel defaults to 1");
 
     sequence.addEvent(juce::MidiMessage::controllerEvent(1, 7, 80), 1.0);
+    sequence.addEvent(juce::MidiMessage::controllerEvent(1, TrackMixProcessor::kExpressionController, 70), 1.5);
     sequence.addEvent(juce::MidiMessage::controllerEvent(1, TrackMixProcessor::kReverbController, 40), 2.0);
     sequence.addEvent(juce::MidiMessage::controllerEvent(1, 7, 95), 3.0);
+    sequence.addEvent(juce::MidiMessage::controllerEvent(1, TrackMixProcessor::kExpressionController, 88), 3.5);
     sequence.addEvent(juce::MidiMessage::noteOn(5, 60, (juce::uint8) 100), 4.0);
     TrackMixMidiSeed::applyFromTrackSequences({ sequence }, state);
     expectTrue(state.getVolume(0) == 95, "Track mix seed uses last CC7 value");
+    expectTrue(state.getExpression(0) == 88, "Track mix seed uses last CC11 value");
     expectTrue(state.getReverb(0) == 40, "Track mix seed uses last CC91 value");
     expectTrue(state.getChannel(0) == 1, "Track mix seed uses first MIDI channel in track");
 
     state.setVolume(0, 64);
+    state.setExpression(0, 77);
     state.setReverb(0, 22);
     state.setChannel(0, 8);
     expectTrue(state.getVolume(0) == 64, "Saved preset volume remains after manual set");
+    expectTrue(state.getExpression(0) == 77, "Saved preset expression remains after manual set");
     expectTrue(state.getReverb(0) == 22, "Saved preset reverb remains after manual set");
     expectTrue(state.getChannel(0) == 8, "Saved preset channel remains after manual set");
 }
@@ -886,16 +905,16 @@ void testTrackMixSnapshotComparison()
 {
     std::vector<TrackMixSettings> baseline
     {
-        { 100, 10, 1, false, false },
-        { 90, 15, 2, true, false }
+        { 100, 100, 10, 1, false, false },
+        { 90, 88, 15, 2, true, false }
     };
 
     std::vector<TrackMixSettings> same = baseline;
     expectTrue(same == baseline, "Track mix snapshot comparison treats identical states as equal");
 
     auto modified = baseline;
-    modified[1].reverb = 16;
-    expectTrue(!(modified == baseline), "Track mix snapshot comparison detects changed reverb");
+    modified[1].expression = 89;
+    expectTrue(!(modified == baseline), "Track mix snapshot comparison detects changed expression");
 }
 
 void testTempoTimeSigFixtureBehavior()

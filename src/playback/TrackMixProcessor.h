@@ -8,6 +8,7 @@ class TrackMixProcessor
 {
 public:
     static constexpr int kReverbController = 91;
+    static constexpr int kExpressionController = 11;
 
     static bool shouldSendTrack(int trackIndex, const TrackMixState& mixState)
     {
@@ -29,11 +30,14 @@ public:
 
         const int outChannel = mixState.getChannel(trackIndex);
         const int trackVolume = mixState.getVolume(trackIndex);
+        const int trackExpression = mixState.getExpression(trackIndex);
         const float volumeGain = static_cast<float>(trackVolume) / 127.0f;
+        const float expressionGain = static_cast<float>(trackExpression) / 127.0f;
+        const float noteOnGain = volumeGain * expressionGain;
 
         if (message.isNoteOn())
         {
-            const int scaledVelocity = juce::jlimit(0, 127, static_cast<int>(std::round(message.getVelocity() * volumeGain)));
+            const int scaledVelocity = juce::jlimit(0, 127, static_cast<int>(std::round(message.getVelocity() * noteOnGain)));
             auto transformed = juce::MidiMessage::noteOn(outChannel,
                                                          message.getNoteNumber(),
                                                          static_cast<juce::uint8>(scaledVelocity));
@@ -51,9 +55,17 @@ public:
         if (message.isController())
         {
             const int controller = message.getControllerNumber();
-            if (controller == 7 || controller == 11)
+            if (controller == 7)
             {
                 const int scaledValue = juce::jlimit(0, 127, static_cast<int>(std::round(message.getControllerValue() * volumeGain)));
+                auto transformed = juce::MidiMessage::controllerEvent(outChannel, controller, scaledValue);
+                transformed.setTimeStamp(message.getTimeStamp());
+                return transformed;
+            }
+
+            if (controller == kExpressionController)
+            {
+                const int scaledValue = juce::jlimit(0, 127, static_cast<int>(std::round(message.getControllerValue() * expressionGain)));
                 auto transformed = juce::MidiMessage::controllerEvent(outChannel, controller, scaledValue);
                 transformed.setTimeStamp(message.getTimeStamp());
                 return transformed;
