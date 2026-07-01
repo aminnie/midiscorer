@@ -585,12 +585,19 @@ Best score wins.
 
 This deterministic scorer is simple, explainable, and fast enough for realtime updates.
 
+Complexity whitelist gating is applied before scoring:
+
+- `Simple`: `""`, `m`, `dim`, `aug`, `sus2`, `sus4`
+- `Standard`: `Simple` + `6`, `m6`, `7`, `maj7`, `m7`, `mMaj7`, `add9`, `9`, `m9`, `11`, `13`
+- `Rich`: `Standard` + `7b5`, `7#5`, `7b9`, `7#9`
+
 ### 4.6 Naming and display style
 
 Root/bass spelling controlled by `NamingOptions`:
 
 - `preferSharps` or `preferFlats`
 - `plain` or `jazzSymbols` suffix style
+- `simple` / `standard` / `rich` chord complexity filtering
 
 Slash chord output is emitted when bass pitch-class differs from root.
 
@@ -600,7 +607,35 @@ Examples:
 - `Ebm7`
 - `G7/B`
 
-### 4.7 Chord recognition deep dive (pseudo-code level)
+### 4.7 Ready-to-paste complexity whitelist
+
+JSON:
+
+```json
+{
+  "simple": ["", "m", "dim", "aug", "sus2", "sus4"],
+  "standard": ["", "m", "dim", "aug", "sus2", "sus4", "6", "m6", "7", "maj7", "m7", "mMaj7", "add9", "9", "m9", "11", "13"],
+  "rich": ["", "m", "dim", "aug", "sus2", "sus4", "6", "m6", "7", "maj7", "m7", "mMaj7", "add9", "9", "m9", "11", "13", "7b5", "7#5", "7b9", "7#9"]
+}
+```
+
+C++:
+
+```cpp
+constexpr std::array<const char*, 6> kSimpleSuffixes = {
+    "", "m", "dim", "aug", "sus2", "sus4"
+};
+
+constexpr std::array<const char*, 17> kStandardSuffixes = {
+    "", "m", "dim", "aug", "sus2", "sus4", "6", "m6", "7", "maj7", "m7", "mMaj7", "add9", "9", "m9", "11", "13"
+};
+
+constexpr std::array<const char*, 21> kRichSuffixes = {
+    "", "m", "dim", "aug", "sus2", "sus4", "6", "m6", "7", "maj7", "m7", "mMaj7", "add9", "9", "m9", "11", "13", "7b5", "7#5", "7b9", "7#9"
+};
+```
+
+### 4.8 Chord recognition deep dive (pseudo-code level)
 
 This subsection documents the concrete detection and runtime integration behavior from:
 
@@ -608,7 +643,7 @@ This subsection documents the concrete detection and runtime integration behavio
 - `src/app/ScoreRebuildService.h`
 - `src/app/MainComponent.h` (`timerCallback` live marker path)
 
-#### 4.7.1 End-to-end architecture
+#### 4.8.1 End-to-end architecture
 
 Chord recognition runs in two related pipelines:
 
@@ -632,7 +667,7 @@ flowchart LR
   markerState --> renderLive[Render live chord marker overlay]
 ```
 
-#### 4.7.2 Input note-set construction
+#### 4.8.2 Input note-set construction
 
 `MainComponent` builds chord-analysis notes from selected chord tracks, with optional staff-track fallback when no chord tracks are selected.
 
@@ -659,7 +694,7 @@ Notes are collected twice by design:
 - static rebuild path for bar annotations
 - playback path for low-latency live marker refresh
 
-#### 4.7.3 Static detection scan (`detect`)
+#### 4.8.3 Static detection scan (`detect`)
 
 Static detection iterates bar-by-bar, then quarter-window-by-quarter-window.
 
@@ -693,7 +728,7 @@ Dedup rules intentionally reset at:
 
 This allows the same symbol to reappear after rhythmic gaps.
 
-#### 4.7.4 Window extraction and feature set
+#### 4.8.4 Window extraction and feature set
 
 `detectWindow` constructs a compact harmonic feature set from notes overlapping `[startSec, endSec)`:
 
@@ -721,7 +756,7 @@ if pcs.size < 3:
     return ""
 ```
 
-#### 4.7.5 Template matcher and scorer
+#### 4.8.5 Template matcher and scorer
 
 For each candidate root `0..11` and each chord template:
 
@@ -793,7 +828,7 @@ Template interval matrix (relative semitone offsets from candidate root):
 | `"7#9"` | `[0, 4, 7, 10, 3]` | `[8]` |
 | `"add9"` | `[0, 4, 7, 2]` | `[9, 11]` |
 
-#### 4.7.6 Naming transform layer
+#### 4.8.6 Naming transform layer
 
 Root and slash-bass pitch names are formatted by accidental preference:
 
@@ -809,7 +844,7 @@ Suffix post-processing for jazz symbols:
 
 All other suffixes pass through unchanged.
 
-#### 4.7.7 Live detection path and marker-state machine
+#### 4.8.7 Live detection path and marker-state machine
 
 Live markers and static labels now share one user-selected grid:
 
@@ -854,7 +889,7 @@ flowchart TD
   changeCheck -->|no| noOp
 ```
 
-#### 4.7.8 Complexity and performance posture
+#### 4.8.8 Complexity and performance posture
 
 Let:
 

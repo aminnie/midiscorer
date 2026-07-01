@@ -180,6 +180,40 @@ void testChordDetector()
         expectTrue(flatChords.front().symbol.contains("C"), "Chord naming options keep root identity");
 }
 
+void testChordComplexityWhitelist()
+{
+    std::vector<MidiNoteEvent> notes;
+    for (int midiNote : { 48, 52, 55, 58, 61 }) // C, E, G, Bb, Db -> C7b9 sonority
+    {
+        MidiNoteEvent ev;
+        ev.noteNumber = midiNote;
+        ev.startSec = 0.0;
+        ev.endSec = 1.0;
+        notes.push_back(ev);
+    }
+
+    ChordDetector::NamingOptions simpleOptions;
+    simpleOptions.complexity = ChordDetector::ChordComplexity::simple;
+    const auto simple = ChordDetector::detectInWindow(notes, 0.0, 1.0, simpleOptions);
+    const bool simpleVocabulary = !simple.contains("7")
+        && !simple.contains("9")
+        && !simple.contains("11")
+        && !simple.contains("13")
+        && !simple.contains("b5")
+        && !simple.contains("#5");
+    expectTrue(simpleVocabulary, "Simple chord complexity limits output to triad/sus vocabulary");
+
+    ChordDetector::NamingOptions standardOptions;
+    standardOptions.complexity = ChordDetector::ChordComplexity::standard;
+    const auto standard = ChordDetector::detectInWindow(notes, 0.0, 1.0, standardOptions);
+    expectTrue(standard == "C7", "Standard chord complexity allows sevenths but excludes altered dominant suffixes");
+
+    ChordDetector::NamingOptions richOptions;
+    richOptions.complexity = ChordDetector::ChordComplexity::rich;
+    const auto rich = ChordDetector::detectInWindow(notes, 0.0, 1.0, richOptions);
+    expectTrue(rich == "C7b9", "Rich chord complexity allows altered dominant suffixes");
+}
+
 void testChordDetectionResolution()
 {
     TempoMap map;
@@ -1143,6 +1177,7 @@ int main()
     testQuantizerTripletFlagging();
     testDottedDurationQuantization();
     testChordDetector();
+    testChordComplexityWhitelist();
     testChordDetectionResolution();
     testNoDisplayStaffSelectorMapping();
     testMidiLoaderRejectsType0();

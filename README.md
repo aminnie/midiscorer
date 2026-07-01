@@ -32,6 +32,7 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
 - Detect/display chords:
   - static bar chord label (left-aligned)
   - configurable chord detection grid (`Quarter` or `Eighth`) used for both static labels and live marker windows
+  - configurable chord vocabulary level (`Simple`, `Standard`, `Rich`) used to constrain allowed suffix templates
   - live chord marker shown only when chord text or marker position changes
 - Chord source selection:
   - dynamic per-track checkbox list (`Chord Tracks`) used for harmonic analysis
@@ -58,8 +59,9 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
   - transpose per song under `transposeOverridesBySong`
   - key override per song under `keyOverridesBySong`
   - tempo override per song under `tempoOverridesBySong` (scales playback uniformly against the file's opening tempo; later tempo changes keep their relative ratios)
+  - chord complexity per song under `chordComplexityBySong` (`Rich` default)
   - chord detection resolution per song under `chordResolutionBySong` (`Quarter` default)
-  - staff/chord-track/accidental/alias selections (including `No Display`) and other score UI state per song
+  - staff/chord-track/accidental/alias/chord-level selections (including `No Display`) and other score UI state per song
 - Non-destructive workflow:
   - loaded MIDI files are treated as source material and are not rewritten by the app
   - user edits are persisted in profile data and can be reloaded with **Load Preset**
@@ -149,7 +151,7 @@ open "build-mac/MidiScorer_artefacts/Debug/MidiScorer.app"
    - transpose
    - key override text
    - key `Assign` checkbox (session-only; checked: profile-only key text, no transpose)
-   - chord naming options
+   - chord naming options (`Sharp/Flat`, `Plain/Jazz`, `Simple/Standard/Rich`)
    - score color mode
 7. Use **Score** tab to view/edit notation options and track assignments.
 8. Choose the Score tab `PDF mode` (`All active staffs` or `Staff 1 only`).
@@ -169,6 +171,7 @@ open "build-mac/MidiScorer_artefacts/Debug/MidiScorer.app"
 - Rests, beaming, and accidental handling are practical approximations, not full engraving rules.
 - Chord detection uses deterministic template scoring and may be ambiguous for dense voicings.
 - Chord detection grid is selectable (`Quarter` default, `Eighth` optional) and can still be ambiguous for dense voicings.
+- Chord complexity level is selectable (`Simple`, `Standard`, `Rich`) and limits which suffix templates can be emitted.
 - Playback drives visual sync and optional MIDI output from one shared timeline.
 - Output is intentionally limited to a single GM-oriented MIDI destination.
 - Profile save/load is the supported way to keep or revert edits; the app does not rewrite source MIDI files.
@@ -189,7 +192,7 @@ open "build-mac/MidiScorer_artefacts/Debug/MidiScorer.app"
   - `src/midi/TempoMap.h` is the authoritative timing layer.
 - `Chord detection`
   - `src/harmony/ChordDetector.h` contains template matching and naming rules.
-  - `detect(...)` and `detectInWindow(...)` support quarter/eighth detection windows.
+  - `detect(...)` and `detectInWindow(...)` support quarter/eighth detection windows and simple/standard/rich complexity filtering.
 - `Notation model`
   - `src/notation/ScoreModel.h` inserts explicit rest symbols per bar by gap-filling occupied note spans.
 - `Notation rendering`
@@ -209,3 +212,37 @@ open "build-mac/MidiScorer_artefacts/Debug/MidiScorer.app"
    - verify Start/Stop/Continue behavior
   - verify type **0** MIDI shows conversion guidance modal and is rejected
    - verify live chord marker updates on playback
+
+## Chord Complexity Whitelist
+
+The detector uses suffix-template whitelists per chord complexity level:
+
+- `Simple` (beginner): triads and sus only
+- `Standard` (intermediate): simple + common 6/7/9/11/13 extensions
+- `Rich` (advanced): full set including altered dominant forms
+
+Ready-to-paste JSON form:
+
+```json
+{
+  "simple": ["", "m", "dim", "aug", "sus2", "sus4"],
+  "standard": ["", "m", "dim", "aug", "sus2", "sus4", "6", "m6", "7", "maj7", "m7", "mMaj7", "add9", "9", "m9", "11", "13"],
+  "rich": ["", "m", "dim", "aug", "sus2", "sus4", "6", "m6", "7", "maj7", "m7", "mMaj7", "add9", "9", "m9", "11", "13", "7b5", "7#5", "7b9", "7#9"]
+}
+```
+
+Ready-to-paste C++ form:
+
+```cpp
+constexpr std::array<const char*, 6> kSimpleSuffixes = {
+    "", "m", "dim", "aug", "sus2", "sus4"
+};
+
+constexpr std::array<const char*, 17> kStandardSuffixes = {
+    "", "m", "dim", "aug", "sus2", "sus4", "6", "m6", "7", "maj7", "m7", "mMaj7", "add9", "9", "m9", "11", "13"
+};
+
+constexpr std::array<const char*, 21> kRichSuffixes = {
+    "", "m", "dim", "aug", "sus2", "sus4", "6", "m6", "7", "maj7", "m7", "mMaj7", "add9", "9", "m9", "11", "13", "7b5", "7#5", "7b9", "7#9"
+};
+```

@@ -147,6 +147,22 @@ public:
             refreshSavePresetButtonDirtyStyle();
         };
 
+        addAndMakeVisible(chordComplexityLabel);
+        chordComplexityLabel.setText("Chord Level", juce::dontSendNotification);
+        chordComplexityLabel.setJustificationType(juce::Justification::centredRight);
+        addAndMakeVisible(chordComplexitySelector);
+        chordComplexitySelector.addItem("Simple", static_cast<int>(ChordDetector::ChordComplexity::simple));
+        chordComplexitySelector.addItem("Standard", static_cast<int>(ChordDetector::ChordComplexity::standard));
+        chordComplexitySelector.addItem("Rich", static_cast<int>(ChordDetector::ChordComplexity::rich));
+        chordComplexitySelector.setSelectedId(static_cast<int>(ChordDetector::ChordComplexity::rich), juce::dontSendNotification);
+        chordComplexitySelector.setTooltip("Choose the chord vocabulary complexity used for chord naming.");
+        chordComplexitySelector.onChange = [this]
+        {
+            resetLiveChordState();
+            rebuildAllStaffs();
+            refreshSavePresetButtonDirtyStyle();
+        };
+
         addAndMakeVisible(chordTracksLabel);
         chordTracksLabel.setText("Chord Tracks", juce::dontSendNotification);
         chordTracksLabel.setJustificationType(juce::Justification::centredLeft);
@@ -782,6 +798,7 @@ private:
         juce::String chordTrackSelectionCsv;
         int accidentalSelection = 1;
         int aliasSelection = 1;
+        int chordComplexitySelection = static_cast<int>(ChordDetector::ChordComplexity::rich);
         int chordResolutionSelection = static_cast<int>(ChordDetector::DetectionResolution::quarter);
         int transposeSemitones = 0;
         juce::String keyOverrideText;
@@ -797,6 +814,7 @@ private:
                 && chordTrackSelectionCsv == other.chordTrackSelectionCsv
                 && accidentalSelection == other.accidentalSelection
                 && aliasSelection == other.aliasSelection
+                && chordComplexitySelection == other.chordComplexitySelection
                 && chordResolutionSelection == other.chordResolutionSelection
                 && transposeSemitones == other.transposeSemitones
                 && keyOverrideText == other.keyOverrideText
@@ -826,12 +844,29 @@ private:
                             selectedId);
     }
 
+    static int normalizeChordComplexitySelectorId(int selectedId)
+    {
+        return juce::jlimit(static_cast<int>(ChordDetector::ChordComplexity::simple),
+                            static_cast<int>(ChordDetector::ChordComplexity::rich),
+                            selectedId);
+    }
+
     ChordDetector::DetectionResolution getChordDetectionResolution() const
     {
         const int normalized = normalizeChordResolutionSelectorId(chordResolutionSelector.getSelectedId());
         return normalized == static_cast<int>(ChordDetector::DetectionResolution::eighth)
             ? ChordDetector::DetectionResolution::eighth
             : ChordDetector::DetectionResolution::quarter;
+    }
+
+    ChordDetector::ChordComplexity getChordComplexity() const
+    {
+        const int normalized = normalizeChordComplexitySelectorId(chordComplexitySelector.getSelectedId());
+        if (normalized == static_cast<int>(ChordDetector::ChordComplexity::simple))
+            return ChordDetector::ChordComplexity::simple;
+        if (normalized == static_cast<int>(ChordDetector::ChordComplexity::standard))
+            return ChordDetector::ChordComplexity::standard;
+        return ChordDetector::ChordComplexity::rich;
     }
 
     static int normalizeStaffDisplayOctaveSelectorId(int selectedId)
@@ -1128,6 +1163,7 @@ private:
         namingOptions.jazzAliasStyle = aliasSelector.getSelectedId() == 2
             ? ChordDetector::JazzAliasStyle::jazzSymbols
             : ChordDetector::JazzAliasStyle::plain;
+        namingOptions.complexity = getChordComplexity();
         return namingOptions;
     }
 
@@ -1182,6 +1218,7 @@ private:
         snapshot.chordTrackSelectionCsv = buildChordTrackSelectionCsv();
         snapshot.accidentalSelection = accidentalSelector.getSelectedId();
         snapshot.aliasSelection = aliasSelector.getSelectedId();
+        snapshot.chordComplexitySelection = normalizeChordComplexitySelectorId(chordComplexitySelector.getSelectedId());
         snapshot.chordResolutionSelection = normalizeChordResolutionSelectorId(chordResolutionSelector.getSelectedId());
         snapshot.transposeSemitones = getClampedTranspose(globalTransposeInput);
         snapshot.keyOverrideText = keyOverride.has_value() ? keyOverride->displayText : juce::String();
@@ -1342,9 +1379,26 @@ private:
 
     void layoutChordTrackButtons(juce::Rectangle<int> area)
     {
-        chordResolutionLabel.setBounds(area.removeFromLeft(82));
-        chordResolutionSelector.setBounds(area.removeFromLeft(70).reduced(4, 0));
-        chordTracksLabel.setBounds(area.removeFromLeft(104));
+        auto chordComplexityLabelBounds = area.removeFromLeft(94);
+        auto chordComplexityBounds = area.removeFromLeft(116).reduced(4, 0);
+        chordComplexityBounds.setHeight(26);
+        chordComplexityLabelBounds.setY(chordComplexityBounds.getY());
+        chordComplexityLabelBounds.setHeight(chordComplexityBounds.getHeight());
+        chordComplexityLabel.setBounds(chordComplexityLabelBounds);
+        chordComplexitySelector.setBounds(chordComplexityBounds);
+
+        auto chordResolutionLabelBounds = area.removeFromLeft(82);
+        auto chordResolutionBounds = area.removeFromLeft(70).reduced(4, 0);
+        chordResolutionBounds.setHeight(26);
+        chordResolutionLabelBounds.setY(chordResolutionBounds.getY());
+        chordResolutionLabelBounds.setHeight(chordResolutionBounds.getHeight());
+        chordResolutionLabel.setBounds(chordResolutionLabelBounds);
+        chordResolutionSelector.setBounds(chordResolutionBounds);
+
+        auto chordTracksLabelBounds = area.removeFromLeft(104);
+        chordTracksLabelBounds.setY(chordResolutionBounds.getY());
+        chordTracksLabelBounds.setHeight(chordResolutionBounds.getHeight());
+        chordTracksLabel.setBounds(chordTracksLabelBounds);
 
         const int xPadding = 6;
         const int rowHeight = 22;
@@ -1927,6 +1981,23 @@ private:
         return normalizeChordResolutionSelectorId(static_cast<int>(bySongObj->getProperty(songId)));
     }
 
+    std::optional<int> getSongChordComplexityFromPreset(const juce::DynamicObject& preset) const
+    {
+        const auto songKey = getSongPresetKey();
+        if (songKey.isEmpty() || !preset.hasProperty("chordComplexityBySong"))
+            return std::nullopt;
+
+        auto* bySongObj = preset.getProperty("chordComplexityBySong").getDynamicObject();
+        if (bySongObj == nullptr)
+            return std::nullopt;
+
+        const juce::Identifier songId(songKey);
+        if (!bySongObj->hasProperty(songId))
+            return std::nullopt;
+
+        return normalizeChordComplexitySelectorId(static_cast<int>(bySongObj->getProperty(songId)));
+    }
+
     void applyTrackMixFromPreset(const juce::DynamicObject& preset)
     {
         initializeTrackMixFromMidi();
@@ -2018,6 +2089,7 @@ private:
         obj->setProperty("chordTrackSelection", buildChordTrackSelectionCsv());
         obj->setProperty("accidental", accidentalSelector.getSelectedId());
         obj->setProperty("alias", aliasSelector.getSelectedId());
+        obj->setProperty("chordComplexity", normalizeChordComplexitySelectorId(chordComplexitySelector.getSelectedId()));
         obj->setProperty("chordResolution", normalizeChordResolutionSelectorId(chordResolutionSelector.getSelectedId()));
         obj->setProperty("scoreLightMode", scoreLightMode);
         obj->setProperty("pdfExportMode", exportPdfModeSelector.getSelectedId());
@@ -2040,6 +2112,7 @@ private:
         auto chordTrackSelectionBySong = std::make_unique<juce::DynamicObject>();
         auto accidentalBySong = std::make_unique<juce::DynamicObject>();
         auto aliasBySong = std::make_unique<juce::DynamicObject>();
+        auto chordComplexityBySong = std::make_unique<juce::DynamicObject>();
         auto chordResolutionBySong = std::make_unique<juce::DynamicObject>();
         auto transposeOverridesBySong = std::make_unique<juce::DynamicObject>();
         auto keyOverridesBySong = std::make_unique<juce::DynamicObject>();
@@ -2082,6 +2155,13 @@ private:
                     {
                         for (const auto& prop : existingAliasObj->getProperties())
                             aliasBySong->setProperty(prop.name, prop.value);
+                    }
+
+                    const auto existingChordComplexityVar = existingObj->getProperty("chordComplexityBySong");
+                    if (auto* existingChordComplexityObj = existingChordComplexityVar.getDynamicObject())
+                    {
+                        for (const auto& prop : existingChordComplexityObj->getProperties())
+                            chordComplexityBySong->setProperty(prop.name, prop.value);
                     }
 
                     const auto existingChordResolutionVar = existingObj->getProperty("chordResolutionBySong");
@@ -2141,6 +2221,7 @@ private:
             chordTrackSelectionBySong->setProperty(songId, buildChordTrackSelectionCsv());
             accidentalBySong->setProperty(songId, accidentalSelector.getSelectedId());
             aliasBySong->setProperty(songId, aliasSelector.getSelectedId());
+            chordComplexityBySong->setProperty(songId, normalizeChordComplexitySelectorId(chordComplexitySelector.getSelectedId()));
             chordResolutionBySong->setProperty(songId, normalizeChordResolutionSelectorId(chordResolutionSelector.getSelectedId()));
 
             const int songTranspose = getGlobalTransposeSemitones(true);
@@ -2170,6 +2251,7 @@ private:
         obj->setProperty("chordTrackSelectionBySong", juce::var(chordTrackSelectionBySong.release()));
         obj->setProperty("accidentalBySong", juce::var(accidentalBySong.release()));
         obj->setProperty("aliasBySong", juce::var(aliasBySong.release()));
+        obj->setProperty("chordComplexityBySong", juce::var(chordComplexityBySong.release()));
         obj->setProperty("chordResolutionBySong", juce::var(chordResolutionBySong.release()));
         obj->setProperty("transposeOverridesBySong", juce::var(transposeOverridesBySong.release()));
         obj->setProperty("keyOverridesBySong", juce::var(keyOverridesBySong.release()));
@@ -2339,6 +2421,24 @@ private:
                 hasSongAliasMap ? 1 : juce::jlimit(1, 2, getIntProperty("alias", 1)),
                 juce::dontSendNotification);
         }
+
+        const auto songChordComplexitySelection = getSongChordComplexityFromPreset(*obj);
+        if (songChordComplexitySelection.has_value())
+        {
+            chordComplexitySelector.setSelectedId(songChordComplexitySelection.value(), juce::dontSendNotification);
+        }
+        else
+        {
+            const bool hasSongChordComplexityMap = obj->hasProperty("chordComplexityBySong")
+                && obj->getProperty("chordComplexityBySong").getDynamicObject() != nullptr;
+            chordComplexitySelector.setSelectedId(
+                hasSongChordComplexityMap
+                    ? static_cast<int>(ChordDetector::ChordComplexity::rich)
+                    : normalizeChordComplexitySelectorId(
+                          getIntProperty("chordComplexity", static_cast<int>(ChordDetector::ChordComplexity::rich))),
+                juce::dontSendNotification);
+        }
+
         const auto songChordResolutionSelection = getSongChordResolutionFromPreset(*obj);
         if (songChordResolutionSelection.has_value())
         {
@@ -3045,6 +3145,8 @@ private:
     juce::ComboBox accidentalSelector;
     juce::TextButton accidentalHelpButton;
     juce::ComboBox aliasSelector;
+    juce::Label chordComplexityLabel;
+    juce::ComboBox chordComplexitySelector;
     juce::Label chordResolutionLabel;
     juce::ComboBox chordResolutionSelector;
     juce::Label chordTracksLabel;

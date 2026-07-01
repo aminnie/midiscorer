@@ -29,10 +29,18 @@ public:
         jazzSymbols
     };
 
+    enum class ChordComplexity
+    {
+        simple = 1,
+        standard = 2,
+        rich = 3
+    };
+
     struct NamingOptions
     {
         AccidentalPreference accidentalPreference = AccidentalPreference::preferSharps;
         JazzAliasStyle jazzAliasStyle = JazzAliasStyle::plain;
+        ChordComplexity complexity = ChordComplexity::rich;
     };
 
     static double windowQuarterLength(DetectionResolution resolution)
@@ -134,6 +142,9 @@ private:
         {
             for (const auto& tmpl : templates())
             {
+                if (!templateAllowedForComplexity(tmpl.suffix, options.complexity))
+                    continue;
+
                 if (!containsRequired(pcs, root, tmpl.required))
                     continue;
 
@@ -235,5 +246,26 @@ private:
             { "add9",  { 0, 4, 7, 2 }, { 9, 11 } }
         };
         return all;
+    }
+
+    static bool templateAllowedForComplexity(const juce::String& suffix, ChordComplexity complexity)
+    {
+        if (complexity == ChordComplexity::rich)
+            return true;
+
+        if (complexity == ChordComplexity::simple)
+        {
+            return suffix.isEmpty()
+                || suffix == "m"
+                || suffix == "dim"
+                || suffix == "aug"
+                || suffix == "sus2"
+                || suffix == "sus4";
+        }
+
+        return suffix != "7b5"
+            && suffix != "7#5"
+            && suffix != "7b9"
+            && suffix != "7#9";
     }
 };
