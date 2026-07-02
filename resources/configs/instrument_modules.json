@@ -12,6 +12,18 @@
       "displayName": "Deebach BlackBox",
       "moduleFileName": "maxplus.json",
       "moduleIdString": "BLACKBOX"
+    },
+    {
+      "moduleIndex": 2,
+      "displayName": "Roland Integra-7",
+      "moduleFileName": "integra7.json",
+      "moduleIdString": "INTEGRA-7"
+    },
+    {
+      "moduleIndex": 3,
+      "displayName": "Ketron EVM",
+      "moduleFileName": "ketronevm.json",
+      "moduleIdString": "EVM"
     }
   ]
 }

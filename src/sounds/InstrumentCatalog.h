@@ -215,6 +215,8 @@ private:
 
         loaded.push_back({ "MIDI", "MidiGM", "midigm.json" });
         loaded.push_back({ "BLACKBOX", "Deebach BlackBox", "maxplus.json" });
+        loaded.push_back({ "INTEGRA-7", "Roland Integra-7", "integra7.json" });
+        loaded.push_back({ "EVM", "Ketron EVM", "ketronevm.json" });
         return loaded;
     }
 
