@@ -47,12 +47,12 @@ public:
         workingDirectoryInput.onFocusLost = [this] { applyWorkingDirectoryInput(); };
 
         addAndMakeVisible(browseWorkingDirectoryButton);
-        browseWorkingDirectoryButton.setButtonText("Set Working Directory...");
+        browseWorkingDirectoryButton.setButtonText("Set Working Directory");
         applyStartButtonStyle(browseWorkingDirectoryButton);
         browseWorkingDirectoryButton.onClick = [this] { browseWorkingDirectory(); };
 
         addAndMakeVisible(addWorkingSubfolderButton);
-        addWorkingSubfolderButton.setButtonText("Add Subfolder...");
+        addWorkingSubfolderButton.setButtonText("Add Subfolder");
         addWorkingSubfolderButton.setTooltip("Create a new folder under the selected working directory.");
         applyStartButtonStyle(addWorkingSubfolderButton);
         addWorkingSubfolderButton.onClick = [this] { addWorkingSubfolder(); };
@@ -65,17 +65,17 @@ public:
         workingFilesSelector.onChange = [this] { refreshWorkingFileButtonsEnabledState(); };
 
         addAndMakeVisible(addWorkingMidiButton);
-        addWorkingMidiButton.setButtonText("Add MIDI...");
+        addWorkingMidiButton.setButtonText("Add MIDI");
         applyStartButtonStyle(addWorkingMidiButton);
         addWorkingMidiButton.onClick = [this] { addMidiToWorkingDirectory(); };
 
         addAndMakeVisible(renameWorkingMidiButton);
-        renameWorkingMidiButton.setButtonText("Rename MIDI...");
+        renameWorkingMidiButton.setButtonText("Rename MIDI");
         applyStartButtonStyle(renameWorkingMidiButton);
         renameWorkingMidiButton.onClick = [this] { renameSelectedWorkingMidi(); };
 
         addAndMakeVisible(deleteWorkingMidiButton);
-        deleteWorkingMidiButton.setButtonText("Delete MIDI...");
+        deleteWorkingMidiButton.setButtonText("Delete MIDI");
         applyStartButtonStyle(deleteWorkingMidiButton);
         deleteWorkingMidiButton.onClick = [this] { deleteSelectedWorkingMidi(); };
 
@@ -122,7 +122,7 @@ public:
         exitButton.setBounds(row1.removeFromRight(80).reduced(4, 0));
 
         area.removeFromTop(8);
-        auto workingRow = area.removeFromTop(24);
+        auto workingRow = area.removeFromTop(28);
         constexpr int workingLabelWidth = 116;
         constexpr int workingInputWidth = 470;
         constexpr int workingActionWidth = 188;
@@ -131,13 +131,13 @@ public:
         browseWorkingDirectoryButton.setBounds(workingRow.removeFromLeft(workingActionWidth).reduced(4, 0));
 
         area.removeFromTop(6);
-        auto subfolderRow = area.removeFromTop(24);
+        auto subfolderRow = area.removeFromTop(28);
         subfolderRow.removeFromLeft(workingLabelWidth);
         subfolderRow.removeFromLeft(workingInputWidth);
         addWorkingSubfolderButton.setBounds(subfolderRow.removeFromLeft(workingActionWidth).reduced(4, 0));
 
         area.removeFromTop(6);
-        auto filesRow = area.removeFromTop(24);
+        auto filesRow = area.removeFromTop(28);
         workingFilesLabel.setBounds(filesRow.removeFromLeft(116));
         workingFilesSelector.setBounds(filesRow.removeFromLeft(470).reduced(4, 0));
         addWorkingMidiButton.setBounds(filesRow.removeFromLeft(96).reduced(4, 0));
@@ -145,7 +145,7 @@ public:
         deleteWorkingMidiButton.setBounds(filesRow.removeFromLeft(96).reduced(4, 0));
 
         area.removeFromTop(8);
-        auto toggleRow = area.removeFromTop(24);
+        auto toggleRow = area.removeFromTop(28);
         startupResumeToggle.setBounds(toggleRow.removeFromLeft(260));
         scoreLightModeToggle.setBounds(toggleRow.removeFromLeft(120));
 
