@@ -612,6 +612,181 @@ public:
         return true;
     }
 
+    std::vector<juce::File> getWorkingDirectoryMidiFiles() const
+    {
+        std::vector<juce::File> files;
+        if (!workingDirectory.isDirectory())
+            return files;
+
+        juce::Array<juce::File> listed;
+        workingDirectory.findChildFiles(listed, juce::File::findFiles, false, "*.mid");
+        workingDirectory.findChildFiles(listed, juce::File::findFiles, false, "*.midi");
+        files.reserve(static_cast<size_t>(listed.size()));
+        for (const auto& file : listed)
+            files.push_back(file);
+
+        std::sort(files.begin(), files.end(), [](const juce::File& a, const juce::File& b)
+        {
+            return a.getFileName().compareIgnoreCase(b.getFileName()) < 0;
+        });
+        return files;
+    }
+
+    bool addMidiFileToWorkingDirectory(const juce::File& sourceFile,
+                                       const juce::String& requestedBaseName,
+                                       juce::String& copiedPath,
+                                       juce::String& error)
+    {
+        copiedPath.clear();
+        if (!sourceFile.existsAsFile())
+        {
+            error = "Source MIDI file does not exist.";
+            return false;
+        }
+
+        const auto baseName = requestedBaseName.trim().isNotEmpty()
+            ? requestedBaseName
+            : sourceFile.getFileNameWithoutExtension();
+        const auto destination = WorkingDirectoryCopy::buildWorkingDirectoryDestination(
+            workingDirectory,
+            baseName,
+            sourceFile.getFileExtension(),
+            error);
+        if (!destination.has_value())
+            return false;
+
+        if (!sourceFile.copyFileTo(destination.value()))
+        {
+            error = "Could not copy MIDI into the working directory.";
+            return false;
+        }
+
+        copiedPath = destination->getFullPathName();
+        return true;
+    }
+
+    bool renameWorkingDirectoryMidiFile(const juce::String& currentFileName,
+                                        const juce::String& requestedBaseName,
+                                        juce::String& renamedPath,
+                                        juce::String& error)
+    {
+        renamedPath.clear();
+        if (!workingDirectory.isDirectory())
+        {
+            error = "Working directory is not available.";
+            return false;
+        }
+
+        const juce::File currentFile = workingDirectory.getChildFile(currentFileName);
+        if (!currentFile.existsAsFile())
+        {
+            error = "Selected MIDI file was not found.";
+            return false;
+        }
+
+        const auto normalizedRequested = WorkingDirectoryCopy::normalizeMidiBaseName(requestedBaseName);
+        if (normalizedRequested.isEmpty())
+        {
+            error = "Please enter a valid MIDI filename.";
+            return false;
+        }
+
+        const auto extension = WorkingDirectoryCopy::normalizeMidiExtension(currentFile.getFileExtension());
+        const juce::File desiredFile = workingDirectory.getChildFile(normalizedRequested + extension);
+
+        const auto oldPath = currentFile.getFullPathName();
+        const auto newPath = desiredFile.getFullPathName();
+        if (newPath == oldPath)
+        {
+            renamedPath = oldPath;
+            return true;
+        }
+
+        // Case-only rename support on case-insensitive filesystems:
+        // move through a temporary file to force metadata update.
+        if (newPath.equalsIgnoreCase(oldPath))
+        {
+            const auto tempFile = workingDirectory.getNonexistentChildFile(
+                normalizedRequested + "_case_tmp",
+                extension,
+                false);
+            if (!currentFile.moveFileTo(tempFile))
+            {
+                error = "Could not rename MIDI file in working directory.";
+                return false;
+            }
+            if (!tempFile.moveFileTo(desiredFile))
+            {
+                const bool rolledBack = tempFile.moveFileTo(currentFile);
+                error = rolledBack
+                    ? "Could not finalize case-only rename."
+                    : "Could not finalize case-only rename and rollback failed.";
+                return false;
+            }
+            renamedPath = newPath;
+            return true;
+        }
+
+        if (desiredFile.existsAsFile())
+        {
+            error = "A file with that name already exists in the working directory.";
+            return false;
+        }
+
+        if (!currentFile.moveFileTo(desiredFile))
+        {
+            error = "Could not rename MIDI file in working directory.";
+            return false;
+        }
+
+        juce::String presetError;
+        if (!remapSongPathInPreset(oldPath, newPath, presetError))
+        {
+            const bool rolledBack = desiredFile.moveFileTo(currentFile);
+            error = rolledBack
+                ? ("Rename cancelled: could not update preset references (" + presetError + ").")
+                : ("Rename succeeded but preset update failed (" + presetError + ").");
+            return false;
+        }
+
+        remapSongPathInMemory(oldPath, newPath);
+        renamedPath = newPath;
+        return true;
+    }
+
+    bool deleteWorkingDirectoryMidiFile(const juce::String& fileName, juce::String& error)
+    {
+        if (!workingDirectory.isDirectory())
+        {
+            error = "Working directory is not available.";
+            return false;
+        }
+
+        const juce::File targetFile = workingDirectory.getChildFile(fileName);
+        if (!targetFile.existsAsFile())
+        {
+            error = "Selected MIDI file was not found.";
+            return false;
+        }
+
+        const auto deletedPath = targetFile.getFullPathName();
+        if (!targetFile.deleteFile())
+        {
+            error = "Could not delete MIDI file from working directory.";
+            return false;
+        }
+
+        juce::String presetError;
+        if (!removeSongPathFromPreset(deletedPath, presetError))
+        {
+            error = "File deleted, but preset cleanup failed: " + presetError;
+            return false;
+        }
+
+        removeSongPathFromMemory(deletedPath);
+        return true;
+    }
+
     bool isScoreLightMode() const
     {
         return scoreLightMode;
@@ -1452,6 +1627,155 @@ private:
     {
         // Selector index 0 is "No Display".
         return trackSelector.getSelectedItemIndex() > 0;
+    }
+
+    static juce::String normalizeSongPath(const juce::String& path)
+    {
+        return path.trim().replaceCharacter('\\', '/').toLowerCase();
+    }
+
+    static bool songPathMatches(const juce::String& lhs, const juce::String& rhs)
+    {
+        return normalizeSongPath(lhs) == normalizeSongPath(rhs);
+    }
+
+    bool remapSongPathInPreset(const juce::String& oldPath, const juce::String& newPath, juce::String& error)
+    {
+        const auto oldKey = normalizeSongPath(oldPath);
+        const auto newKey = normalizeSongPath(newPath);
+        if (oldKey.isEmpty() || newKey.isEmpty() || oldKey == newKey)
+            return true;
+
+        const auto newDisplayPath = newPath.replaceCharacter('\\', '/');
+        return PresetFileStore::mergeWritePreset(
+            [oldKey, newKey, newDisplayPath](juce::DynamicObject& obj)
+            {
+                const juce::Identifier oldId(oldKey);
+                const juce::Identifier newId(newKey);
+                const auto remapBySong = [&](const char* propertyName)
+                {
+                    auto* bySong = obj.getProperty(propertyName).getDynamicObject();
+                    if (bySong == nullptr || !bySong->hasProperty(oldId))
+                        return;
+                    const auto value = bySong->getProperty(oldId);
+                    bySong->removeProperty(oldId);
+                    bySong->setProperty(newId, value);
+                };
+
+                for (const auto* propertyName : { "staffTrackSelectionsBySong",
+                                                  "chordTrackSelectionBySong",
+                                                  "accidentalBySong",
+                                                  "aliasBySong",
+                                                  "chordResolutionBySong",
+                                                  "chordComplexityBySong",
+                                                  "transposeOverridesBySong",
+                                                  "keyOverridesBySong",
+                                                  "tempoOverridesBySong",
+                                                  "trackMixBySong",
+                                                  "loopBySong" })
+                {
+                    remapBySong(propertyName);
+                }
+
+                if (obj.hasProperty("lastLoadedMidiPath"))
+                {
+                    const auto lastLoaded = obj.getProperty("lastLoadedMidiPath").toString();
+                    if (MainComponent::normalizeSongPath(lastLoaded) == oldKey)
+                        obj.setProperty("lastLoadedMidiPath", newDisplayPath);
+                }
+
+                if (auto* recent = obj.getProperty("recentMidiFiles").getArray())
+                {
+                    for (auto& entry : *recent)
+                    {
+                        const auto path = entry.toString();
+                        if (MainComponent::normalizeSongPath(path) == oldKey)
+                            entry = newDisplayPath;
+                    }
+                }
+            },
+            error);
+    }
+
+    bool removeSongPathFromPreset(const juce::String& path, juce::String& error)
+    {
+        const auto key = normalizeSongPath(path);
+        if (key.isEmpty())
+            return true;
+
+        return PresetFileStore::mergeWritePreset(
+            [key](juce::DynamicObject& obj)
+            {
+                const juce::Identifier songId(key);
+                const auto removeBySong = [&](const char* propertyName)
+                {
+                    if (auto* bySong = obj.getProperty(propertyName).getDynamicObject())
+                        bySong->removeProperty(songId);
+                };
+
+                for (const auto* propertyName : { "staffTrackSelectionsBySong",
+                                                  "chordTrackSelectionBySong",
+                                                  "accidentalBySong",
+                                                  "aliasBySong",
+                                                  "chordResolutionBySong",
+                                                  "chordComplexityBySong",
+                                                  "transposeOverridesBySong",
+                                                  "keyOverridesBySong",
+                                                  "tempoOverridesBySong",
+                                                  "trackMixBySong",
+                                                  "loopBySong" })
+                {
+                    removeBySong(propertyName);
+                }
+
+                if (obj.hasProperty("lastLoadedMidiPath"))
+                {
+                    const auto lastLoaded = obj.getProperty("lastLoadedMidiPath").toString();
+                    if (MainComponent::normalizeSongPath(lastLoaded) == key)
+                        obj.setProperty("lastLoadedMidiPath", juce::String());
+                }
+
+                if (auto* recent = obj.getProperty("recentMidiFiles").getArray())
+                {
+                    for (int i = recent->size(); --i >= 0;)
+                    {
+                        if (MainComponent::normalizeSongPath((*recent)[(int) i].toString()) == key)
+                            recent->remove(i);
+                    }
+                }
+            },
+            error);
+    }
+
+    void remapSongPathInMemory(const juce::String& oldPath, const juce::String& newPath)
+    {
+        if (songPathMatches(lastLoadedMidiPath, oldPath))
+            lastLoadedMidiPath = newPath.replaceCharacter('\\', '/');
+
+        for (auto& path : recentMidiFiles)
+        {
+            if (songPathMatches(path, oldPath))
+                path = newPath.replaceCharacter('\\', '/');
+        }
+        refreshRecentFilesButtonState();
+
+        if (project.file.existsAsFile() && songPathMatches(project.file.getFullPathName(), oldPath))
+        {
+            project.file = juce::File(newPath);
+            updateWindowTitle();
+        }
+    }
+
+    void removeSongPathFromMemory(const juce::String& path)
+    {
+        if (songPathMatches(lastLoadedMidiPath, path))
+            lastLoadedMidiPath.clear();
+
+        recentMidiFiles.erase(std::remove_if(recentMidiFiles.begin(),
+                                             recentMidiFiles.end(),
+                                             [&](const juce::String& entry) { return songPathMatches(entry, path); }),
+                              recentMidiFiles.end());
+        refreshRecentFilesButtonState();
     }
 
     ScoreSongSettingsSnapshot buildCurrentScoreSongSettingsSnapshot() const

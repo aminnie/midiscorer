@@ -24,6 +24,7 @@ public:
 
         addAndMakeVisible(refreshOutputsButton);
         refreshOutputsButton.setButtonText("Refresh");
+        applyStartButtonStyle(refreshOutputsButton);
         refreshOutputsButton.onClick = [this] { refreshOutputDeviceList(); };
 
         addAndMakeVisible(startupResumeToggle);
@@ -47,12 +48,36 @@ public:
 
         addAndMakeVisible(browseWorkingDirectoryButton);
         browseWorkingDirectoryButton.setButtonText("Set Working Directory...");
+        applyStartButtonStyle(browseWorkingDirectoryButton);
         browseWorkingDirectoryButton.onClick = [this] { browseWorkingDirectory(); };
 
         addAndMakeVisible(addWorkingSubfolderButton);
         addWorkingSubfolderButton.setButtonText("Add Subfolder...");
         addWorkingSubfolderButton.setTooltip("Create a new folder under the selected working directory.");
+        applyStartButtonStyle(addWorkingSubfolderButton);
         addWorkingSubfolderButton.onClick = [this] { addWorkingSubfolder(); };
+
+        addAndMakeVisible(workingFilesLabel);
+        workingFilesLabel.setText("Working MIDI", juce::dontSendNotification);
+        workingFilesLabel.setJustificationType(juce::Justification::centredRight);
+
+        addAndMakeVisible(workingFilesSelector);
+        workingFilesSelector.onChange = [this] { refreshWorkingFileButtonsEnabledState(); };
+
+        addAndMakeVisible(addWorkingMidiButton);
+        addWorkingMidiButton.setButtonText("Add MIDI...");
+        applyStartButtonStyle(addWorkingMidiButton);
+        addWorkingMidiButton.onClick = [this] { addMidiToWorkingDirectory(); };
+
+        addAndMakeVisible(renameWorkingMidiButton);
+        renameWorkingMidiButton.setButtonText("Rename MIDI...");
+        applyStartButtonStyle(renameWorkingMidiButton);
+        renameWorkingMidiButton.onClick = [this] { renameSelectedWorkingMidi(); };
+
+        addAndMakeVisible(deleteWorkingMidiButton);
+        deleteWorkingMidiButton.setButtonText("Delete MIDI...");
+        applyStartButtonStyle(deleteWorkingMidiButton);
+        deleteWorkingMidiButton.onClick = [this] { deleteSelectedWorkingMidi(); };
 
         addAndMakeVisible(scoreLightModeToggle);
         scoreLightModeToggle.setButtonText("Light Score");
@@ -68,10 +93,7 @@ public:
 
         addAndMakeVisible(exitButton);
         exitButton.setButtonText("Exit");
-        exitButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-        exitButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
-        exitButton.setColour(juce::TextButton::buttonColourId, juce::Colours::black.darker());
-        exitButton.setColour(juce::TextButton::buttonOnColourId, juce::Colours::black.brighter());
+        applyStartButtonStyle(exitButton);
         exitButton.onClick = [this]()
         {
             if (exitAction)
@@ -80,6 +102,8 @@ public:
 
         refreshOutputDeviceList();
         refreshLiveStatus();
+        refreshWorkingMidiFileList();
+        refreshWorkingFileButtonsEnabledState();
         startTimerHz(5);
     }
 
@@ -99,14 +123,26 @@ public:
 
         area.removeFromTop(8);
         auto workingRow = area.removeFromTop(24);
+        constexpr int workingLabelWidth = 116;
+        constexpr int workingInputWidth = 470;
+        constexpr int workingActionWidth = 188;
         workingDirectoryLabel.setBounds(workingRow.removeFromLeft(116));
-        workingDirectoryInput.setBounds(workingRow.removeFromLeft(470).reduced(4, 0));
-        browseWorkingDirectoryButton.setBounds(workingRow.removeFromLeft(188).reduced(4, 0));
+        workingDirectoryInput.setBounds(workingRow.removeFromLeft(workingInputWidth).reduced(4, 0));
+        browseWorkingDirectoryButton.setBounds(workingRow.removeFromLeft(workingActionWidth).reduced(4, 0));
 
         area.removeFromTop(6);
         auto subfolderRow = area.removeFromTop(24);
-        subfolderRow.removeFromLeft(590);
-        addWorkingSubfolderButton.setBounds(subfolderRow.removeFromLeft(188).reduced(4, 0));
+        subfolderRow.removeFromLeft(workingLabelWidth);
+        subfolderRow.removeFromLeft(workingInputWidth);
+        addWorkingSubfolderButton.setBounds(subfolderRow.removeFromLeft(workingActionWidth).reduced(4, 0));
+
+        area.removeFromTop(6);
+        auto filesRow = area.removeFromTop(24);
+        workingFilesLabel.setBounds(filesRow.removeFromLeft(116));
+        workingFilesSelector.setBounds(filesRow.removeFromLeft(470).reduced(4, 0));
+        addWorkingMidiButton.setBounds(filesRow.removeFromLeft(96).reduced(4, 0));
+        renameWorkingMidiButton.setBounds(filesRow.removeFromLeft(108).reduced(4, 0));
+        deleteWorkingMidiButton.setBounds(filesRow.removeFromLeft(96).reduced(4, 0));
 
         area.removeFromTop(8);
         auto toggleRow = area.removeFromTop(24);
@@ -121,6 +157,17 @@ public:
     }
 
 private:
+    static void applyStartButtonStyle(juce::TextButton& button)
+    {
+        const auto baseOff = juce::Colours::lightgrey;
+        const auto baseOn = juce::Colours::lightgrey;
+        const auto baseText = juce::Colours::black;
+        button.setColour(juce::TextButton::buttonColourId, baseOff);
+        button.setColour(juce::TextButton::buttonOnColourId, baseOn);
+        button.setColour(juce::TextButton::textColourOffId, baseText);
+        button.setColour(juce::TextButton::textColourOnId, baseText);
+    }
+
     void timerCallback() override
     {
         refreshLiveStatus();
@@ -187,6 +234,7 @@ private:
         const auto workingDirPath = scorePage.getWorkingDirectoryPath();
         if (workingDirectoryInput.getText() != workingDirPath)
             workingDirectoryInput.setText(workingDirPath, juce::dontSendNotification);
+        refreshWorkingMidiFileList();
 
         const bool isPlaying = scorePage.isPlaybackRunning();
         const int currentBar = scorePage.getCurrentPlaybackBar();
@@ -219,6 +267,7 @@ private:
         }
 
         workingDirectoryInput.setText(scorePage.getWorkingDirectoryPath(), juce::dontSendNotification);
+        refreshWorkingMidiFileList();
     }
 
     void browseWorkingDirectory()
@@ -244,6 +293,184 @@ private:
             workingDirectoryInput.setText(selected.getFullPathName(), juce::dontSendNotification);
             applyWorkingDirectoryInput();
         });
+    }
+
+    static juce::String sanitizeMidiBaseName(const juce::String& input)
+    {
+        auto name = input.trim().removeCharacters("\\/:*?\"<>|");
+        while (name.isNotEmpty() && (name.endsWithChar('.') || name.endsWithChar(' ')))
+            name = name.dropLastCharacters(1);
+        return name.trim();
+    }
+
+    juce::String getSelectedWorkingMidiFileName() const
+    {
+        const int selectedId = workingFilesSelector.getSelectedId();
+        if (selectedId <= 1 || selectedId - 2 >= static_cast<int>(workingMidiFileNames.size()))
+            return {};
+        return workingMidiFileNames[(size_t) (selectedId - 2)];
+    }
+
+    void refreshWorkingFileButtonsEnabledState()
+    {
+        const bool hasSelection = getSelectedWorkingMidiFileName().isNotEmpty();
+        renameWorkingMidiButton.setEnabled(hasSelection);
+        deleteWorkingMidiButton.setEnabled(hasSelection);
+    }
+
+    void refreshWorkingMidiFileList()
+    {
+        const auto files = scorePage.getWorkingDirectoryMidiFiles();
+        std::vector<juce::String> fileNames;
+        fileNames.reserve(files.size());
+        for (const auto& file : files)
+            fileNames.push_back(file.getFileName());
+
+        if (fileNames == workingMidiFileNames)
+        {
+            refreshWorkingFileButtonsEnabledState();
+            return;
+        }
+
+        const auto previousSelection = getSelectedWorkingMidiFileName();
+        workingMidiFileNames = std::move(fileNames);
+        workingFilesSelector.clear(juce::dontSendNotification);
+        workingFilesSelector.addItem("(None)", 1);
+
+        int selectedId = 1;
+        int itemId = 2;
+        for (const auto& fileName : workingMidiFileNames)
+        {
+            workingFilesSelector.addItem(fileName, itemId);
+            if (fileName == previousSelection)
+                selectedId = itemId;
+            ++itemId;
+        }
+
+        workingFilesSelector.setSelectedId(selectedId, juce::dontSendNotification);
+        refreshWorkingFileButtonsEnabledState();
+    }
+
+    void promptForWorkingMidiNameAndAdd(const juce::File& sourceFile,
+                                        const juce::String& initialName,
+                                        const juce::String& validationError)
+    {
+        auto* alert = new juce::AlertWindow("Add MIDI to Working Directory",
+                                            validationError.isNotEmpty()
+                                                ? ("Select a target MIDI filename.\n\n" + validationError)
+                                                : "Select a target MIDI filename.",
+                                            juce::MessageBoxIconType::QuestionIcon,
+                                            this);
+        alert->addTextEditor("targetName", initialName, "Filename");
+        alert->addButton("Add", 1, juce::KeyPress(juce::KeyPress::returnKey));
+        alert->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+
+        juce::Component::SafePointer<PlayerTabComponent> safeThis(this);
+        alert->enterModalState(true, juce::ModalCallbackFunction::create([safeThis, alert, sourceFile](int result)
+        {
+            if (safeThis == nullptr || result != 1)
+                return;
+
+            const auto requested = sanitizeMidiBaseName(alert->getTextEditorContents("targetName"));
+            juce::String copiedPath;
+            juce::String error;
+            if (!safeThis->scorePage.addMidiFileToWorkingDirectory(sourceFile, requested, copiedPath, error))
+            {
+                safeThis->promptForWorkingMidiNameAndAdd(sourceFile,
+                                                         requested.isNotEmpty() ? requested : sourceFile.getFileNameWithoutExtension(),
+                                                         error);
+                return;
+            }
+
+            safeThis->refreshWorkingMidiFileList();
+            safeThis->statusLabel.setText("Added MIDI: " + juce::File(copiedPath).getFileName(), juce::dontSendNotification);
+        }), true);
+    }
+
+    void addMidiToWorkingDirectory()
+    {
+        addMidiFileChooser = std::make_unique<juce::FileChooser>(
+            "Select MIDI file to copy into working directory",
+            juce::File(),
+            "*.mid;*.midi",
+            false,
+            false,
+            this);
+        const auto chooserFlags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
+        addMidiFileChooser->launchAsync(chooserFlags, [this](const juce::FileChooser& chooser)
+        {
+            const auto sourceFile = chooser.getResult();
+            if (!sourceFile.existsAsFile())
+                return;
+
+            promptForWorkingMidiNameAndAdd(sourceFile, sourceFile.getFileNameWithoutExtension(), {});
+        });
+    }
+
+    void renameSelectedWorkingMidi()
+    {
+        const auto currentFileName = getSelectedWorkingMidiFileName();
+        if (currentFileName.isEmpty())
+            return;
+
+        const juce::File currentFile(currentFileName);
+        auto* alert = new juce::AlertWindow("Rename Working MIDI",
+                                            "Enter the new filename (extension is preserved).",
+                                            juce::MessageBoxIconType::QuestionIcon,
+                                            this);
+        alert->addTextEditor("newName", currentFile.getFileNameWithoutExtension(), "Filename");
+        alert->addButton("Rename", 1, juce::KeyPress(juce::KeyPress::returnKey));
+        alert->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+
+        juce::Component::SafePointer<PlayerTabComponent> safeThis(this);
+        alert->enterModalState(true, juce::ModalCallbackFunction::create([safeThis, alert, currentFileName](int result)
+        {
+            if (safeThis == nullptr || result != 1)
+                return;
+
+            const auto requested = sanitizeMidiBaseName(alert->getTextEditorContents("newName"));
+            juce::String renamedPath;
+            juce::String error;
+            if (!safeThis->scorePage.renameWorkingDirectoryMidiFile(currentFileName, requested, renamedPath, error))
+            {
+                safeThis->statusLabel.setText("Rename error: " + error, juce::dontSendNotification);
+                return;
+            }
+
+            safeThis->refreshWorkingMidiFileList();
+            safeThis->statusLabel.setText("Renamed MIDI: " + juce::File(renamedPath).getFileName(), juce::dontSendNotification);
+        }), true);
+    }
+
+    void deleteSelectedWorkingMidi()
+    {
+        const auto currentFileName = getSelectedWorkingMidiFileName();
+        if (currentFileName.isEmpty())
+            return;
+
+        auto* alert = new juce::AlertWindow("Delete Working MIDI",
+                                            "Delete '" + currentFileName + "' from the working directory?",
+                                            juce::MessageBoxIconType::WarningIcon,
+                                            this);
+        alert->addButton("Delete", 1, juce::KeyPress(juce::KeyPress::returnKey));
+        alert->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+
+        juce::Component::SafePointer<PlayerTabComponent> safeThis(this);
+        alert->enterModalState(true, juce::ModalCallbackFunction::create([safeThis, currentFileName](int result)
+        {
+            if (safeThis == nullptr || result != 1)
+                return;
+
+            juce::String error;
+            if (!safeThis->scorePage.deleteWorkingDirectoryMidiFile(currentFileName, error))
+            {
+                safeThis->statusLabel.setText("Delete error: " + error, juce::dontSendNotification);
+                return;
+            }
+
+            safeThis->refreshWorkingMidiFileList();
+            safeThis->statusLabel.setText("Deleted MIDI: " + currentFileName, juce::dontSendNotification);
+        }), true);
     }
 
     static juce::String sanitizeFolderName(const juce::String& input)
@@ -308,8 +535,10 @@ private:
 
     MainComponent& scorePage;
     std::vector<MidiOutputDeviceInfo> availableOutputs;
+    std::vector<juce::String> workingMidiFileNames;
     std::function<void()> exitAction;
     std::unique_ptr<juce::FileChooser> workingDirectoryChooser;
+    std::unique_ptr<juce::FileChooser> addMidiFileChooser;
 
     juce::Label outputLabel;
     juce::ComboBox outputSelector;
@@ -320,6 +549,11 @@ private:
     juce::TextEditor workingDirectoryInput;
     juce::TextButton browseWorkingDirectoryButton;
     juce::TextButton addWorkingSubfolderButton;
+    juce::Label workingFilesLabel;
+    juce::ComboBox workingFilesSelector;
+    juce::TextButton addWorkingMidiButton;
+    juce::TextButton renameWorkingMidiButton;
+    juce::TextButton deleteWorkingMidiButton;
     juce::ToggleButton scoreLightModeToggle;
     juce::Label fileLabel;
     juce::Label statusLabel;
