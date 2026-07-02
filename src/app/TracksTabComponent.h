@@ -39,6 +39,17 @@ public:
     }
 
 private:
+    static void applyStartButtonStyle(juce::Button& button)
+    {
+        const auto baseOff = juce::Colours::lightgrey;
+        const auto baseOn = juce::Colours::lightgrey;
+        const auto baseText = juce::Colours::black;
+        button.setColour(juce::TextButton::buttonColourId, baseOff);
+        button.setColour(juce::TextButton::buttonOnColourId, baseOn);
+        button.setColour(juce::TextButton::textColourOffId, baseText);
+        button.setColour(juce::TextButton::textColourOnId, baseText);
+    }
+
     struct TrackRow
     {
         int trackIndex = -1;
@@ -119,7 +130,7 @@ private:
             row->trackIndex = i;
 
             row->group = std::make_unique<juce::GroupComponent>();
-            row->group->setText(juce::String(i + 1).paddedLeft('0', 2) + ": " + scorePage.getTrackDisplayName(i));
+            row->group->setText("Track " + juce::String(i + 1).paddedLeft('0', 2) + ": " + scorePage.getTrackDisplayName(i));
             content.addAndMakeVisible(*row->group);
 
             row->volumeLabel = std::make_unique<juce::Label>();
@@ -220,6 +231,7 @@ private:
 
             row->soundButton = std::make_unique<juce::TextButton>();
             row->soundButton->setButtonText(scorePage.getTrackSoundDisplayName(i));
+            applyStartButtonStyle(*row->soundButton);
             row->soundButton->onClick = [this, idx = i]
             {
                 scorePage.setTrackSoundEditingTrackIndex(idx);
@@ -230,6 +242,7 @@ private:
 
             row->soundHelpButton = std::make_unique<juce::TextButton>("?");
             row->soundHelpButton->setTooltip("Show MSB/LSB/Voice override details");
+            applyStartButtonStyle(*row->soundHelpButton);
             row->soundHelpButton->onClick = [this, idx = i]
             {
                 const auto sound = scorePage.getTrackSoundProgram(idx);

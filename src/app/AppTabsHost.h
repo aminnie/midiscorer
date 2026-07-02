@@ -10,8 +10,8 @@ enum AppTabIndex
 {
     PTStart = 0,
     PTScore = 1,
-    PTSounds = 2,
-    PTEffects = 3,
+    PTEffects = 2,
+    PTSounds = 3,
     PTExit = 4
 };
 
@@ -68,8 +68,8 @@ public:
         const auto defaultTabColour = findColour(juce::ResizableWindow::backgroundColourId);
         tabs.addTab("Start", defaultTabColour, &playerTab, false);
         tabs.addTab("Score", defaultTabColour, &scoreTab, false);
-        tabs.addTab("Sounds", defaultTabColour, &soundsTab, false);
         tabs.addTab("Effects", defaultTabColour, &tracksTab, false);
+        tabs.addTab("Sounds", defaultTabColour, &soundsTab, false);
         tabs.addTab("Exit", defaultTabColour, &exitPlaceholder, false);
 
         playerTab.setExitAction([this]() { tabs.setCurrentTabIndex(PTExit, true); });

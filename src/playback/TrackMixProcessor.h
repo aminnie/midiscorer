@@ -126,9 +126,26 @@ public:
             return messages;
 
         const int outChannel = mixState.getChannel(trackIndex);
-        messages.push_back(juce::MidiMessage::controllerEvent(outChannel, kBankMsbController, mixState.getBankMsb(trackIndex)));
-        messages.push_back(juce::MidiMessage::controllerEvent(outChannel, kBankLsbController, mixState.getBankLsb(trackIndex)));
-        messages.push_back(juce::MidiMessage::programChange(outChannel, mixState.getProgram(trackIndex)));
+        return buildProgramSelectMessagesForValues(outChannel,
+                                                   mixState.getBankMsb(trackIndex),
+                                                   mixState.getBankLsb(trackIndex),
+                                                   mixState.getProgram(trackIndex));
+    }
+
+    static std::vector<juce::MidiMessage> buildProgramSelectMessagesForValues(int outChannel,
+                                                                               int bankMsb,
+                                                                               int bankLsb,
+                                                                               int program)
+    {
+        std::vector<juce::MidiMessage> messages;
+        messages.push_back(juce::MidiMessage::controllerEvent(juce::jlimit(1, 16, outChannel),
+                                                              kBankMsbController,
+                                                              juce::jlimit(0, 127, bankMsb)));
+        messages.push_back(juce::MidiMessage::controllerEvent(juce::jlimit(1, 16, outChannel),
+                                                              kBankLsbController,
+                                                              juce::jlimit(0, 127, bankLsb)));
+        messages.push_back(juce::MidiMessage::programChange(juce::jlimit(1, 16, outChannel),
+                                                            juce::jlimit(0, 127, program)));
         return messages;
     }
 };

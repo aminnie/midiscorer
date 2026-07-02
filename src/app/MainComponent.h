@@ -917,6 +917,22 @@ public:
         onTrackMixStateChanged();
     }
 
+    void previewTrackSoundProgram(int trackIndex, const TrackSoundProgram& sound, bool silenceFirst)
+    {
+        if (!trackMixState.isValidTrack(trackIndex) || !sound.configured)
+            return;
+
+        if (silenceFirst && playbackController.isPlaying())
+            midiOutputDevice.sendAllNotesOff();
+
+        const auto messages = TrackMixProcessor::buildProgramSelectMessagesForValues(trackMixState.getChannel(trackIndex),
+                                                                                      sound.bankMsb,
+                                                                                      sound.bankLsb,
+                                                                                      sound.program);
+        for (const auto& msg : messages)
+            midiOutputDevice.sendMessageNow(msg);
+    }
+
     bool isTrackMuted(int trackIndex) const
     {
         return trackMixState.isMuted(trackIndex);

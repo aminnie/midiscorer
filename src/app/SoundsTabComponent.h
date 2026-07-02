@@ -47,6 +47,8 @@ public:
         addAndMakeVisible(detailGroup);
         detailGroup.setText("Selected Sound");
 
+        addAndMakeVisible(detailTrackSource);
+        detailTrackSource.setJustificationType(juce::Justification::centredLeft);
         addAndMakeVisible(detailName);
         detailName.setJustificationType(juce::Justification::centredLeft);
         addAndMakeVisible(detailBank);
@@ -55,7 +57,8 @@ public:
         detailProgram.setJustificationType(juce::Justification::centredLeft);
 
         addAndMakeVisible(backToEffectsButton);
-        backToEffectsButton.setButtonText("Back to Effects");
+        backToEffectsButton.setButtonText("Save to Effects");
+        applyStartButtonStyle(backToEffectsButton);
         backToEffectsButton.onClick = [this]
         {
             const int trackIndex = scorePage.getTrackSoundEditingTrackIndex();
@@ -98,12 +101,24 @@ public:
         auto right = bounds.reduced(8, 0);
         detailGroup.setBounds(right);
         auto inner = right.reduced(16, 34);
+        detailTrackSource.setBounds(inner.removeFromTop(26));
         detailName.setBounds(inner.removeFromTop(30));
         detailBank.setBounds(inner.removeFromTop(26));
         detailProgram.setBounds(inner.removeFromTop(26));
     }
 
 private:
+    static void applyStartButtonStyle(juce::Button& button)
+    {
+        const auto baseOff = juce::Colours::lightgrey;
+        const auto baseOn = juce::Colours::lightgrey;
+        const auto baseText = juce::Colours::black;
+        button.setColour(juce::TextButton::buttonColourId, baseOff);
+        button.setColour(juce::TextButton::buttonOnColourId, baseOn);
+        button.setColour(juce::TextButton::textColourOffId, baseText);
+        button.setColour(juce::TextButton::textColourOnId, baseText);
+    }
+
     int getNumRows() override
     {
         return static_cast<int>(currentVoices.size());
@@ -138,6 +153,7 @@ private:
         pending.voiceName = voice.name;
         pending.configured = true;
         pendingSelection = pending;
+        scorePage.previewTrackSoundProgram(scorePage.getTrackSoundEditingTrackIndex(), pending, true);
         refreshDetailPanel();
     }
 
@@ -189,9 +205,13 @@ private:
 
     void refreshDetailPanel()
     {
+        const int trackIndex = scorePage.getTrackSoundEditingTrackIndex();
         const auto active = pendingSelection.has_value()
             ? pendingSelection.value()
-            : scorePage.getTrackSoundProgram(scorePage.getTrackSoundEditingTrackIndex());
+            : scorePage.getTrackSoundProgram(trackIndex);
+        const auto trackSourceText = juce::String(trackIndex + 1).paddedLeft('0', 2)
+            + ": " + scorePage.getTrackDisplayName(trackIndex);
+        detailTrackSource.setText("GM Source Track: " + trackSourceText, juce::dontSendNotification);
         detailName.setText("Name: " + buildTrackSoundDisplayName(active), juce::dontSendNotification);
         detailBank.setText("Bank: MSB " + juce::String(active.bankMsb) + " / LSB " + juce::String(active.bankLsb),
                            juce::dontSendNotification);
@@ -213,6 +233,7 @@ private:
     juce::Label statusLabel;
     juce::ListBox voicesList;
     juce::GroupComponent detailGroup;
+    juce::Label detailTrackSource;
     juce::Label detailName;
     juce::Label detailBank;
     juce::Label detailProgram;
