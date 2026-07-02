@@ -13,6 +13,7 @@
 #include "../src/app/KeyOverrideTranspose.h"
 #include "../src/app/ScorePdfExporter.h"
 #include "../src/app/WorkingDirectoryCopy.h"
+#include "../src/sounds/TrackSoundProgram.h"
 #include "../src/notation/ScoreRenderer.h"
 #include "TestFixturePaths.h"
 #include <iostream>
@@ -900,6 +901,44 @@ void testTrackMixProcessor()
     auto remappedNote = TrackMixProcessor::applyVolumeToMessage(noteOnCh1, 1, state);
     expectTrue(remappedNote.isNoteOn(), "Track mix preserves note-on after channel remap");
     expectTrue(remappedNote.getChannel() == 3, "Track mix remaps output channel");
+
+    state.setBankMsb(1, 121);
+    state.setBankLsb(1, 8);
+    state.setProgram(1, 24);
+    state.setSoundName(1, "Deebach Guitar");
+    state.setSoundConfigured(1, true);
+
+    auto cc0 = juce::MidiMessage::controllerEvent(1, TrackMixProcessor::kBankMsbController, 5);
+    auto remappedCc0 = TrackMixProcessor::applyVolumeToMessage(cc0, 1, state);
+    expectTrue(remappedCc0.isController() && remappedCc0.getControllerNumber() == TrackMixProcessor::kBankMsbController,
+               "Track mix preserves CC0 event type");
+    expectTrue(remappedCc0.getControllerValue() == 121, "Track mix replaces incoming bank MSB with selected sound MSB");
+
+    auto cc32 = juce::MidiMessage::controllerEvent(1, TrackMixProcessor::kBankLsbController, 3);
+    auto remappedCc32 = TrackMixProcessor::applyVolumeToMessage(cc32, 1, state);
+    expectTrue(remappedCc32.isController() && remappedCc32.getControllerNumber() == TrackMixProcessor::kBankLsbController,
+               "Track mix preserves CC32 event type");
+    expectTrue(remappedCc32.getControllerValue() == 8, "Track mix replaces incoming bank LSB with selected sound LSB");
+
+    auto programChange = juce::MidiMessage::programChange(1, 10);
+    auto remappedProgram = TrackMixProcessor::applyVolumeToMessage(programChange, 1, state);
+    expectTrue(remappedProgram.isProgramChange(), "Track mix preserves program-change event type");
+    expectTrue(remappedProgram.getProgramChangeNumber() == 24,
+               "Track mix replaces incoming program number with selected sound program");
+
+    const auto programSelectMessages = TrackMixProcessor::buildProgramSelectMessages(1, state);
+    expectTrue(programSelectMessages.size() == 3, "Track mix emits 3 startup program-select messages");
+    if (programSelectMessages.size() == 3)
+    {
+        expectTrue(programSelectMessages[0].isController() && programSelectMessages[0].getControllerNumber() == 0
+                       && programSelectMessages[0].getControllerValue() == 121,
+                   "Track mix startup message 1 emits selected bank MSB");
+        expectTrue(programSelectMessages[1].isController() && programSelectMessages[1].getControllerNumber() == 32
+                       && programSelectMessages[1].getControllerValue() == 8,
+                   "Track mix startup message 2 emits selected bank LSB");
+        expectTrue(programSelectMessages[2].isProgramChange() && programSelectMessages[2].getProgramChangeNumber() == 24,
+                   "Track mix startup message 3 emits selected program");
+    }
 }
 
 void testTrackMixMidiSeed()
@@ -913,10 +952,17 @@ void testTrackMixMidiSeed()
     expectTrue(state.getExpression(0) == TrackMixMidiSeed::kDefaultExpression, "Missing CC11 defaults expression to 100");
     expectTrue(state.getReverb(0) == TrackMixMidiSeed::kDefaultReverb, "Missing CC91 defaults reverb to 10");
     expectTrue(state.getChannel(0) == TrackMixMidiSeed::kDefaultChannel, "Missing channel defaults to 1");
+    expectTrue(state.getBankMsb(0) == TrackMixMidiSeed::kDefaultBankMsb, "Missing CC0 defaults bank MSB to 0");
+    expectTrue(state.getBankLsb(0) == TrackMixMidiSeed::kDefaultBankLsb, "Missing CC32 defaults bank LSB to 0");
+    expectTrue(state.getProgram(0) == TrackMixMidiSeed::kDefaultProgram, "Missing program change defaults to 0");
+    expectTrue(!state.isSoundConfigured(0), "Missing bank/program seed keeps sound override disabled");
 
     sequence.addEvent(juce::MidiMessage::controllerEvent(1, 7, 80), 1.0);
     sequence.addEvent(juce::MidiMessage::controllerEvent(1, TrackMixProcessor::kExpressionController, 70), 1.5);
     sequence.addEvent(juce::MidiMessage::controllerEvent(1, TrackMixProcessor::kReverbController, 40), 2.0);
+    sequence.addEvent(juce::MidiMessage::controllerEvent(1, TrackMixProcessor::kBankMsbController, 121), 2.5);
+    sequence.addEvent(juce::MidiMessage::controllerEvent(1, TrackMixProcessor::kBankLsbController, 8), 2.75);
+    sequence.addEvent(juce::MidiMessage::programChange(1, 24), 2.8);
     sequence.addEvent(juce::MidiMessage::controllerEvent(1, 7, 95), 3.0);
     sequence.addEvent(juce::MidiMessage::controllerEvent(1, TrackMixProcessor::kExpressionController, 88), 3.5);
     sequence.addEvent(juce::MidiMessage::noteOn(5, 60, (juce::uint8) 100), 4.0);
@@ -925,6 +971,10 @@ void testTrackMixMidiSeed()
     expectTrue(state.getExpression(0) == 88, "Track mix seed uses last CC11 value");
     expectTrue(state.getReverb(0) == 40, "Track mix seed uses last CC91 value");
     expectTrue(state.getChannel(0) == 1, "Track mix seed uses first MIDI channel in track");
+    expectTrue(state.getBankMsb(0) == 121, "Track mix seed uses last CC0 bank MSB value");
+    expectTrue(state.getBankLsb(0) == 8, "Track mix seed uses last CC32 bank LSB value");
+    expectTrue(state.getProgram(0) == 24, "Track mix seed uses last program change value");
+    expectTrue(state.isSoundConfigured(0), "Track mix seed enables sound override when bank/program is present");
 
     state.setVolume(0, 64);
     state.setExpression(0, 77);
@@ -934,22 +984,55 @@ void testTrackMixMidiSeed()
     expectTrue(state.getExpression(0) == 77, "Saved preset expression remains after manual set");
     expectTrue(state.getReverb(0) == 22, "Saved preset reverb remains after manual set");
     expectTrue(state.getChannel(0) == 8, "Saved preset channel remains after manual set");
+    expectTrue(state.getBankMsb(0) == 121, "Saved preset bank MSB remains after manual set");
+    expectTrue(state.getBankLsb(0) == 8, "Saved preset bank LSB remains after manual set");
+    expectTrue(state.getProgram(0) == 24, "Saved preset program remains after manual set");
 }
 
 void testTrackMixSnapshotComparison()
 {
     std::vector<TrackMixSettings> baseline
     {
-        { 100, 100, 10, 1, false, false },
-        { 90, 88, 15, 2, true, false }
+        { 100, 100, 10, 1, 0, 0, 0, "Program 1", false, false, false },
+        { 90, 88, 15, 2, 121, 8, 24, "Deebach Guitar", true, true, false }
     };
 
     std::vector<TrackMixSettings> same = baseline;
     expectTrue(same == baseline, "Track mix snapshot comparison treats identical states as equal");
 
     auto modified = baseline;
-    modified[1].expression = 89;
-    expectTrue(!(modified == baseline), "Track mix snapshot comparison detects changed expression");
+    modified[1].program = 25;
+    expectTrue(!(modified == baseline), "Track mix snapshot comparison detects changed sound program");
+}
+
+void testTrackSoundDisplayName()
+{
+    TrackSoundProgram notConfigured;
+    expectTrue(buildTrackSoundDisplayName(notConfigured) == "Use MIDI File",
+               "Track sound display helper shows MIDI passthrough when override is disabled");
+    const auto notConfiguredHelp = buildTrackSoundCcHelpText(notConfigured);
+    expectTrue(notConfiguredHelp.contains("No sound-module override"),
+               "Track sound help text explains passthrough mode when no override is set");
+
+    TrackSoundProgram configured;
+    configured.bankMsb = 121;
+    configured.bankLsb = 8;
+    configured.program = 24;
+    configured.voiceName = {};
+    configured.configured = true;
+    const auto text = buildTrackSoundDisplayName(configured);
+    expectTrue(text.startsWith("SM: "), "Track sound display helper prefixes override values with SM");
+    expectTrue(text.contains("Voice 25"), "Track sound display helper uses compact voice fallback when name missing");
+
+    configured.voiceName = "Deebach Guitar";
+    const auto namedText = buildTrackSoundDisplayName(configured);
+    expectTrue(namedText == "SM: Deebach Guitar", "Track sound display helper uses selected sound-module voice name");
+
+    const auto configuredHelp = buildTrackSoundCcHelpText(configured);
+    expectTrue(configuredHelp.contains("MSB CC0: 121"), "Track sound help text includes bank MSB");
+    expectTrue(configuredHelp.contains("LSB CC32: 8"), "Track sound help text includes bank LSB");
+    expectTrue(configuredHelp.contains("Voice (Program Change): 25"),
+               "Track sound help text includes program/voice change number");
 }
 
 void testTempoTimeSigFixtureBehavior()
@@ -1253,6 +1336,7 @@ int main()
     testTrackMixProcessor();
     testTrackMixMidiSeed();
     testTrackMixSnapshotComparison();
+    testTrackSoundDisplayName();
     testKeyOverrideTranspose();
     testWorkingDirectoryCopyHelpers();
     testCheckedInFixturesLoad();

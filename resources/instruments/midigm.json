@@ -1,0 +1,72 @@
+{
+  "Vendor": "General Midi",
+  "Instruments": [
+    [ "Piano",
+      [3,1,0,0,"Acoustic Grand Piano"],
+      [3,2,0,0,"Bright Acoustic Piano"],
+      [3,3,0,0,"Electric Grand Piano"],
+      [3,4,0,0,"Honky-tonk Piano"],
+      [3,5,0,0,"Electric Piano 1"],
+      [3,6,0,0,"Electric Piano 2"],
+      [3,7,0,0,"Harpsichord"],
+      [3,8,0,0,"Clavi"]
+    ],
+    [ "Organ",
+      [3,17,0,0,"Drawbar Organ"],
+      [3,18,0,0,"Percussive Organ"],
+      [3,19,0,0,"Rock Organ"],
+      [3,20,0,0,"Church Organ"],
+      [3,21,0,0,"Reed Organ"]
+    ],
+    [ "Guitar",
+      [3,25,0,0,"Acoustic Guitar (nylon)"],
+      [3,26,0,0,"Acoustic Guitar (steel)"],
+      [3,27,0,0,"Electric Guitar (jazz)"],
+      [3,28,0,0,"Electric Guitar (clean)"],
+      [3,29,0,0,"Electric Guitar (muted)"],
+      [3,30,0,0,"Overdriven Guitar"],
+      [3,31,0,0,"Distortion Guitar"]
+    ],
+    [ "Bass",
+      [3,33,0,0,"Acoustic Bass"],
+      [3,34,0,0,"Electric Bass (finger)"],
+      [3,35,0,0,"Electric Bass (pick)"],
+      [3,36,0,0,"Fretless Bass"],
+      [3,37,0,0,"Slap Bass 1"]
+    ],
+    [ "Strings",
+      [3,41,0,0,"Violin"],
+      [3,42,0,0,"Viola"],
+      [3,43,0,0,"Cello"],
+      [3,44,0,0,"Contrabass"],
+      [3,49,0,0,"String Ensemble 1"],
+      [3,50,0,0,"String Ensemble 2"]
+    ],
+    [ "Brass",
+      [3,57,0,0,"Trumpet"],
+      [3,58,0,0,"Trombone"],
+      [3,59,0,0,"Tuba"],
+      [3,60,0,0,"Muted Trumpet"],
+      [3,61,0,0,"French Horn"],
+      [3,62,0,0,"Brass Section"]
+    ],
+    [ "Reed",
+      [3,65,0,0,"Soprano Sax"],
+      [3,66,0,0,"Alto Sax"],
+      [3,67,0,0,"Tenor Sax"],
+      [3,68,0,0,"Baritone Sax"],
+      [3,71,0,0,"Bassoon"],
+      [3,72,0,0,"Clarinet"]
+    ],
+    [ "Synth",
+      [3,81,0,0,"Lead 1 (square)"],
+      [3,82,0,0,"Lead 2 (sawtooth)"],
+      [3,89,0,0,"Pad 1 (new age)"],
+      [3,90,0,0,"Pad 2 (warm)"],
+      [3,91,0,0,"Pad 3 (polysynth)"],
+      [3,92,0,0,"Pad 4 (choir)"],
+      [3,93,0,0,"Pad 5 (bowed)"],
+      [3,94,0,0,"Pad 6 (metallic)"]
+    ]
+  ]
+}

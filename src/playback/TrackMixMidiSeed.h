@@ -13,8 +13,13 @@ public:
     static constexpr int kDefaultExpression = 100;
     static constexpr int kDefaultReverb = 10;
     static constexpr int kDefaultChannel = 1;
+    static constexpr int kDefaultBankMsb = 0;
+    static constexpr int kDefaultBankLsb = 0;
+    static constexpr int kDefaultProgram = 0;
     static constexpr int kVolumeController = 7;
     static constexpr int kExpressionController = 11;
+    static constexpr int kBankMsbController = 0;
+    static constexpr int kBankLsbController = 32;
 
     static std::optional<int> findFirstChannel(const juce::MidiMessageSequence& sequence)
     {
@@ -76,6 +81,25 @@ public:
         return channel.has_value() ? *channel : kDefaultChannel;
     }
 
+    static std::optional<int> findLastProgramChange(const juce::MidiMessageSequence& sequence)
+    {
+        std::optional<int> lastProgram;
+        for (int i = 0; i < sequence.getNumEvents(); ++i)
+        {
+            const auto* holder = sequence.getEventPointer(i);
+            if (holder == nullptr)
+                continue;
+
+            const auto& msg = holder->message;
+            if (msg.isMetaEvent())
+                continue;
+
+            if (msg.isProgramChange())
+                lastProgram = juce::jlimit(0, 127, msg.getProgramChangeNumber());
+        }
+        return lastProgram;
+    }
+
     static void applyFromTrackSequences(const std::vector<juce::MidiMessageSequence>& sequences, TrackMixState& mixState)
     {
         mixState.resizeForTrackCount(static_cast<int>(sequences.size()));
@@ -85,6 +109,16 @@ public:
             mixState.setExpression(i, expressionFromTrackSequence(sequences[(size_t) i]));
             mixState.setReverb(i, reverbFromTrackSequence(sequences[(size_t) i]));
             mixState.setChannel(i, channelFromTrackSequence(sequences[(size_t) i]));
+
+            const auto bankMsb = findLastControllerValue(sequences[(size_t) i], kBankMsbController);
+            const auto bankLsb = findLastControllerValue(sequences[(size_t) i], kBankLsbController);
+            const auto program = findLastProgramChange(sequences[(size_t) i]);
+            mixState.setBankMsb(i, bankMsb.has_value() ? juce::jlimit(0, 127, *bankMsb) : kDefaultBankMsb);
+            mixState.setBankLsb(i, bankLsb.has_value() ? juce::jlimit(0, 127, *bankLsb) : kDefaultBankLsb);
+            mixState.setProgram(i, program.has_value() ? *program : kDefaultProgram);
+            const bool hasSeededSound = bankMsb.has_value() || bankLsb.has_value() || program.has_value();
+            mixState.setSoundConfigured(i, hasSeededSound);
+            mixState.setSoundName(i, {});
         }
     }
 };

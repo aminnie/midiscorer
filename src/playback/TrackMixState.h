@@ -1,5 +1,6 @@
 #pragma once
 
+#include <JuceHeader.h>
 #include <vector>
 
 struct TrackMixSettings
@@ -8,6 +9,11 @@ struct TrackMixSettings
     int expression = 100;
     int reverb = 10;
     int channel = 1;
+    int bankMsb = 0;
+    int bankLsb = 0;
+    int program = 0;
+    juce::String soundName;
+    bool soundConfigured = false;
     bool muted = false;
     bool solo = false;
 };
@@ -18,6 +24,11 @@ inline bool operator==(const TrackMixSettings& lhs, const TrackMixSettings& rhs)
         && lhs.expression == rhs.expression
         && lhs.reverb == rhs.reverb
         && lhs.channel == rhs.channel
+        && lhs.bankMsb == rhs.bankMsb
+        && lhs.bankLsb == rhs.bankLsb
+        && lhs.program == rhs.program
+        && lhs.soundName == rhs.soundName
+        && lhs.soundConfigured == rhs.soundConfigured
         && lhs.muted == rhs.muted
         && lhs.solo == rhs.solo;
 }
@@ -80,6 +91,41 @@ public:
         return tracks[(size_t) trackIndex].channel;
     }
 
+    int getBankMsb(int trackIndex) const
+    {
+        if (!isValidTrack(trackIndex))
+            return 0;
+        return tracks[(size_t) trackIndex].bankMsb;
+    }
+
+    int getBankLsb(int trackIndex) const
+    {
+        if (!isValidTrack(trackIndex))
+            return 0;
+        return tracks[(size_t) trackIndex].bankLsb;
+    }
+
+    int getProgram(int trackIndex) const
+    {
+        if (!isValidTrack(trackIndex))
+            return 0;
+        return tracks[(size_t) trackIndex].program;
+    }
+
+    juce::String getSoundName(int trackIndex) const
+    {
+        if (!isValidTrack(trackIndex))
+            return {};
+        return tracks[(size_t) trackIndex].soundName;
+    }
+
+    bool isSoundConfigured(int trackIndex) const
+    {
+        if (!isValidTrack(trackIndex))
+            return false;
+        return tracks[(size_t) trackIndex].soundConfigured;
+    }
+
     bool isMuted(int trackIndex) const
     {
         if (!isValidTrack(trackIndex))
@@ -132,6 +178,41 @@ public:
         if (!isValidTrack(trackIndex))
             return;
         tracks[(size_t) trackIndex].channel = juce::jlimit(1, 16, channel);
+    }
+
+    void setBankMsb(int trackIndex, int bankMsb)
+    {
+        if (!isValidTrack(trackIndex))
+            return;
+        tracks[(size_t) trackIndex].bankMsb = juce::jlimit(0, 127, bankMsb);
+    }
+
+    void setBankLsb(int trackIndex, int bankLsb)
+    {
+        if (!isValidTrack(trackIndex))
+            return;
+        tracks[(size_t) trackIndex].bankLsb = juce::jlimit(0, 127, bankLsb);
+    }
+
+    void setProgram(int trackIndex, int program)
+    {
+        if (!isValidTrack(trackIndex))
+            return;
+        tracks[(size_t) trackIndex].program = juce::jlimit(0, 127, program);
+    }
+
+    void setSoundName(int trackIndex, const juce::String& soundName)
+    {
+        if (!isValidTrack(trackIndex))
+            return;
+        tracks[(size_t) trackIndex].soundName = soundName.trim();
+    }
+
+    void setSoundConfigured(int trackIndex, bool soundConfigured)
+    {
+        if (!isValidTrack(trackIndex))
+            return;
+        tracks[(size_t) trackIndex].soundConfigured = soundConfigured;
     }
 
     void setMuted(int trackIndex, bool muted)

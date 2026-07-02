@@ -20,6 +20,7 @@
 #include "../playback/TrackMixProcessor.h"
 #include "../playback/TrackMixState.h"
 #include "../playback/TrackMixMidiSeed.h"
+#include "../sounds/TrackSoundProgram.h"
 #include "PresetFileStore.h"
 #include "KeyOverrideTranspose.h"
 #include "ScorePdfExporter.h"
@@ -873,6 +874,49 @@ public:
         return trackMixState.getChannel(trackIndex);
     }
 
+    TrackSoundProgram getTrackSoundProgram(int trackIndex) const
+    {
+        TrackSoundProgram sound;
+        if (!trackMixState.isValidTrack(trackIndex))
+            return sound;
+
+        sound.bankMsb = trackMixState.getBankMsb(trackIndex);
+        sound.bankLsb = trackMixState.getBankLsb(trackIndex);
+        sound.program = trackMixState.getProgram(trackIndex);
+        sound.voiceName = trackMixState.getSoundName(trackIndex);
+        sound.configured = trackMixState.isSoundConfigured(trackIndex);
+        return sound;
+    }
+
+    juce::String getTrackSoundDisplayName(int trackIndex) const
+    {
+        return buildTrackSoundDisplayName(getTrackSoundProgram(trackIndex));
+    }
+
+    int getTrackSoundEditingTrackIndex() const
+    {
+        return trackSoundEditingTrackIndex;
+    }
+
+    void setTrackSoundEditingTrackIndex(int trackIndex)
+    {
+        if (trackMixState.isValidTrack(trackIndex))
+            trackSoundEditingTrackIndex = trackIndex;
+    }
+
+    void setTrackSoundProgram(int trackIndex, const TrackSoundProgram& sound)
+    {
+        if (!trackMixState.isValidTrack(trackIndex))
+            return;
+
+        trackMixState.setBankMsb(trackIndex, sound.bankMsb);
+        trackMixState.setBankLsb(trackIndex, sound.bankLsb);
+        trackMixState.setProgram(trackIndex, sound.program);
+        trackMixState.setSoundName(trackIndex, sound.voiceName);
+        trackMixState.setSoundConfigured(trackIndex, sound.configured);
+        onTrackMixStateChanged();
+    }
+
     bool isTrackMuted(int trackIndex) const
     {
         return trackMixState.isMuted(trackIndex);
@@ -1039,6 +1083,8 @@ public:
         displayedBar = clampedBar;
         continueBarInput.setText(juce::String(clampedBar), juce::dontSendNotification);
         continueArmed = true;
+        midiOutputDevice.sendAllNotesOff();
+        sendTrackSoundOverridesForActiveTracks();
         refreshStatusMessage();
     }
 
@@ -1880,6 +1926,11 @@ private:
                 trackMixState.getExpression(i),
                 trackMixState.getReverb(i),
                 trackMixState.getChannel(i),
+                trackMixState.getBankMsb(i),
+                trackMixState.getBankLsb(i),
+                trackMixState.getProgram(i),
+                trackMixState.getSoundName(i),
+                trackMixState.isSoundConfigured(i),
                 trackMixState.isMuted(i),
                 trackMixState.isSolo(i)
             });
@@ -1916,10 +1967,33 @@ private:
         return false;
     }
 
+    void sendTrackSoundOverrideForTrack(int trackIndex)
+    {
+        if (!trackMixState.isValidTrack(trackIndex))
+            return;
+
+        const auto messages = TrackMixProcessor::buildProgramSelectMessages(trackIndex, trackMixState);
+        for (const auto& msg : messages)
+            midiOutputDevice.sendMessageNow(msg);
+    }
+
+    void sendTrackSoundOverridesForActiveTracks()
+    {
+        for (int i = 0; i < trackMixState.getTrackCount(); ++i)
+        {
+            if (!TrackMixProcessor::shouldSendTrack(i, trackMixState))
+                continue;
+            sendTrackSoundOverrideForTrack(i);
+        }
+    }
+
     void onTrackMixStateChanged()
     {
         if (playbackController.isPlaying())
+        {
             midiOutputDevice.sendAllNotesOff();
+            sendTrackSoundOverridesForActiveTracks();
+        }
         trackMixSaveStatus = TrackMixSaveStatus::pending;
         scheduleDebouncedTrackMixPresetSave();
         refreshStatusMessage();
@@ -2849,6 +2923,16 @@ private:
                 trackMixState.setReverb(i, static_cast<int>(entryObj->getProperty("reverb")));
             if (entryObj->hasProperty("channel"))
                 trackMixState.setChannel(i, static_cast<int>(entryObj->getProperty("channel")));
+            if (entryObj->hasProperty("bankMsb"))
+                trackMixState.setBankMsb(i, static_cast<int>(entryObj->getProperty("bankMsb")));
+            if (entryObj->hasProperty("bankLsb"))
+                trackMixState.setBankLsb(i, static_cast<int>(entryObj->getProperty("bankLsb")));
+            if (entryObj->hasProperty("program"))
+                trackMixState.setProgram(i, static_cast<int>(entryObj->getProperty("program")));
+            if (entryObj->hasProperty("soundName"))
+                trackMixState.setSoundName(i, entryObj->getProperty("soundName").toString());
+            if (entryObj->hasProperty("soundConfigured"))
+                trackMixState.setSoundConfigured(i, static_cast<bool>(entryObj->getProperty("soundConfigured")));
             if (entryObj->hasProperty("mute"))
                 trackMixState.setMuted(i, static_cast<bool>(entryObj->getProperty("mute")));
             if (entryObj->hasProperty("solo"))
@@ -2866,6 +2950,11 @@ private:
             entry->setProperty("expression", trackMixState.getExpression(i));
             entry->setProperty("reverb", trackMixState.getReverb(i));
             entry->setProperty("channel", trackMixState.getChannel(i));
+            entry->setProperty("bankMsb", trackMixState.getBankMsb(i));
+            entry->setProperty("bankLsb", trackMixState.getBankLsb(i));
+            entry->setProperty("program", trackMixState.getProgram(i));
+            entry->setProperty("soundName", trackMixState.getSoundName(i));
+            entry->setProperty("soundConfigured", trackMixState.isSoundConfigured(i));
             entry->setProperty("mute", trackMixState.isMuted(i));
             entry->setProperty("solo", trackMixState.isSolo(i));
             entries.add(juce::var(entry.release()));
@@ -2878,6 +2967,7 @@ private:
         if (project.tracks.empty())
         {
             trackMixState.resizeForTrackCount(0);
+            trackSoundEditingTrackIndex = 0;
             return;
         }
 
@@ -2886,6 +2976,7 @@ private:
         for (const auto& track : project.tracks)
             sequences.push_back(track.sequence);
         TrackMixMidiSeed::applyFromTrackSequences(sequences, trackMixState);
+        trackSoundEditingTrackIndex = juce::jlimit(0, juce::jmax(0, trackMixState.getTrackCount() - 1), trackSoundEditingTrackIndex);
     }
 
     void saveUiPreset(bool showStatusMessage = true)
@@ -3445,7 +3536,8 @@ private:
         if (loopEnabled && !project.tracks.empty())
         {
             const int currentBar = playbackPositionSource->getCurrentBar();
-            TransportCoordinator::handleLoopWrap(buildTransportContext(), currentBar);
+            if (TransportCoordinator::handleLoopWrap(buildTransportContext(), currentBar))
+                sendTrackSoundOverridesForActiveTracks();
         }
 
         if (playbackPositionSource->hasReachedEnd())
@@ -3850,14 +3942,20 @@ private:
     {
         TransportCoordinator::startPlayback(buildTransportContext());
         if (playbackController.isPlaying())
+        {
+            sendTrackSoundOverridesForActiveTracks();
             setScoreControlRowsHidden(true);
+        }
     }
 
     void continuePlaybackFromBar()
     {
         TransportCoordinator::continuePlaybackFromBar(buildTransportContext());
         if (playbackController.isPlaying())
+        {
+            sendTrackSoundOverridesForActiveTracks();
             setScoreControlRowsHidden(true);
+        }
     }
 
     void stopPlayback(bool userInitiated)
@@ -4028,6 +4126,7 @@ private:
     MidiFilePlaybackEngineAdapter midiPlaybackEngine;
     MidiOutputDevice midiOutputDevice;
     TrackMixState trackMixState;
+    int trackSoundEditingTrackIndex = 0;
     std::unique_ptr<juce::FileChooser> fileChooser;
     std::unique_ptr<juce::FileChooser> exportPdfFileChooser;
     juce::File lastMidiDirectory;

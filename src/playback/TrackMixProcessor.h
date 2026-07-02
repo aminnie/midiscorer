@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include <cmath>
+#include <vector>
 #include "TrackMixState.h"
 
 class TrackMixProcessor
@@ -9,6 +10,8 @@ class TrackMixProcessor
 public:
     static constexpr int kReverbController = 91;
     static constexpr int kExpressionController = 11;
+    static constexpr int kBankMsbController = 0;
+    static constexpr int kBankLsbController = 32;
 
     static bool shouldSendTrack(int trackIndex, const TrackMixState& mixState)
     {
@@ -29,6 +32,7 @@ public:
             return message;
 
         const int outChannel = mixState.getChannel(trackIndex);
+        const bool hasSoundOverride = mixState.isSoundConfigured(trackIndex);
         const int trackVolume = mixState.getVolume(trackIndex);
         const int trackExpression = mixState.getExpression(trackIndex);
         const float volumeGain = static_cast<float>(trackVolume) / 127.0f;
@@ -55,6 +59,16 @@ public:
         if (message.isController())
         {
             const int controller = message.getControllerNumber();
+            if (hasSoundOverride && (controller == kBankMsbController || controller == kBankLsbController))
+            {
+                const int value = controller == kBankMsbController
+                    ? mixState.getBankMsb(trackIndex)
+                    : mixState.getBankLsb(trackIndex);
+                auto transformed = juce::MidiMessage::controllerEvent(outChannel, controller, value);
+                transformed.setTimeStamp(message.getTimeStamp());
+                return transformed;
+            }
+
             if (controller == 7)
             {
                 const int scaledValue = juce::jlimit(0, 127, static_cast<int>(std::round(message.getControllerValue() * volumeGain)));
@@ -85,7 +99,10 @@ public:
 
         if (message.isProgramChange())
         {
-            auto transformed = juce::MidiMessage::programChange(outChannel, message.getProgramChangeNumber());
+            const int program = hasSoundOverride
+                ? mixState.getProgram(trackIndex)
+                : message.getProgramChangeNumber();
+            auto transformed = juce::MidiMessage::programChange(outChannel, program);
             transformed.setTimeStamp(message.getTimeStamp());
             return transformed;
         }
@@ -100,5 +117,18 @@ public:
         auto transformed = message;
         transformed.setChannel(outChannel);
         return transformed;
+    }
+
+    static std::vector<juce::MidiMessage> buildProgramSelectMessages(int trackIndex, const TrackMixState& mixState)
+    {
+        std::vector<juce::MidiMessage> messages;
+        if (!mixState.isValidTrack(trackIndex) || !mixState.isSoundConfigured(trackIndex))
+            return messages;
+
+        const int outChannel = mixState.getChannel(trackIndex);
+        messages.push_back(juce::MidiMessage::controllerEvent(outChannel, kBankMsbController, mixState.getBankMsb(trackIndex)));
+        messages.push_back(juce::MidiMessage::controllerEvent(outChannel, kBankLsbController, mixState.getBankLsb(trackIndex)));
+        messages.push_back(juce::MidiMessage::programChange(outChannel, mixState.getProgram(trackIndex)));
+        return messages;
     }
 };

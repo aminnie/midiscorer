@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "modules": [
+    {
+      "moduleIndex": 0,
+      "displayName": "MidiGM",
+      "moduleFileName": "midigm.json",
+      "moduleIdString": "MIDI"
+    },
+    {
+      "moduleIndex": 1,
+      "displayName": "Deebach BlackBox",
+      "moduleFileName": "maxplus.json",
+      "moduleIdString": "BLACKBOX"
+    }
+  ]
+}

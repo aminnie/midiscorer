@@ -24,6 +24,11 @@ public:
         startTimerHz(2);
     }
 
+    void setOpenSoundsAction(std::function<void(int)> action)
+    {
+        openSoundsAction = std::move(action);
+    }
+
     void resized() override
     {
         auto bounds = getLocalBounds().reduced(8);
@@ -48,6 +53,9 @@ private:
         std::unique_ptr<juce::TextEditor> channelInput;
         std::unique_ptr<juce::ToggleButton> muteToggle;
         std::unique_ptr<juce::ToggleButton> soloToggle;
+        std::unique_ptr<juce::Label> soundLabel;
+        std::unique_ptr<juce::TextButton> soundButton;
+        std::unique_ptr<juce::TextButton> soundHelpButton;
     };
 
     static void styleMixSlider(juce::Slider& slider)
@@ -90,6 +98,7 @@ private:
                       << "|" << juce::String(scorePage.getTrackMixExpression(i))
                       << "|" << juce::String(scorePage.getTrackMixReverb(i))
                       << "|" << juce::String(scorePage.getTrackMixChannel(i))
+                      << "|" << scorePage.getTrackSoundDisplayName(i)
                       << "|" << juce::String(scorePage.isTrackMuted(i) ? 1 : 0)
                       << "|" << juce::String(scorePage.isTrackSolo(i) ? 1 : 0);
         }
@@ -121,7 +130,7 @@ private:
             row->volumeSlider = std::make_unique<juce::Slider>();
             row->volumeSlider->setRange(0.0, 127.0, 1.0);
             row->volumeSlider->setSliderStyle(juce::Slider::LinearHorizontal);
-            row->volumeSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 56, 22);
+            row->volumeSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 36, 22);
             styleMixSlider(*row->volumeSlider);
             row->volumeSlider->setValue(scorePage.getTrackMixVolume(i), juce::dontSendNotification);
             row->volumeSlider->onValueChange = [this, idx = i, slider = row->volumeSlider.get()]
@@ -139,7 +148,7 @@ private:
             row->reverbSlider = std::make_unique<juce::Slider>();
             row->reverbSlider->setRange(0.0, 127.0, 1.0);
             row->reverbSlider->setSliderStyle(juce::Slider::LinearHorizontal);
-            row->reverbSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 56, 22);
+            row->reverbSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 36, 22);
             styleMixSlider(*row->reverbSlider);
             row->reverbSlider->setValue(scorePage.getTrackMixReverb(i), juce::dontSendNotification);
             row->reverbSlider->onValueChange = [this, idx = i, slider = row->reverbSlider.get()]
@@ -157,7 +166,7 @@ private:
             row->expressionSlider = std::make_unique<juce::Slider>();
             row->expressionSlider->setRange(0.0, 127.0, 1.0);
             row->expressionSlider->setSliderStyle(juce::Slider::LinearHorizontal);
-            row->expressionSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 56, 22);
+            row->expressionSlider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 36, 22);
             styleMixSlider(*row->expressionSlider);
             row->expressionSlider->setValue(scorePage.getTrackMixExpression(i), juce::dontSendNotification);
             row->expressionSlider->onValueChange = [this, idx = i, slider = row->expressionSlider.get()]
@@ -204,6 +213,35 @@ private:
             };
             content.addAndMakeVisible(*row->soloToggle);
 
+            row->soundLabel = std::make_unique<juce::Label>();
+            row->soundLabel->setText("Sound", juce::dontSendNotification);
+            row->soundLabel->setJustificationType(juce::Justification::centredRight);
+            content.addAndMakeVisible(*row->soundLabel);
+
+            row->soundButton = std::make_unique<juce::TextButton>();
+            row->soundButton->setButtonText(scorePage.getTrackSoundDisplayName(i));
+            row->soundButton->onClick = [this, idx = i]
+            {
+                scorePage.setTrackSoundEditingTrackIndex(idx);
+                if (openSoundsAction)
+                    openSoundsAction(idx);
+            };
+            content.addAndMakeVisible(*row->soundButton);
+
+            row->soundHelpButton = std::make_unique<juce::TextButton>("?");
+            row->soundHelpButton->setTooltip("Show MSB/LSB/Voice override details");
+            row->soundHelpButton->onClick = [this, idx = i]
+            {
+                const auto sound = scorePage.getTrackSoundProgram(idx);
+                juce::AlertWindow::showMessageBoxAsync(
+                    juce::MessageBoxIconType::InfoIcon,
+                    "Track Sound Override",
+                    buildTrackSoundCcHelpText(sound),
+                    "OK",
+                    this);
+            };
+            content.addAndMakeVisible(*row->soundHelpButton);
+
             rows.push_back(std::move(row));
         }
 
@@ -227,14 +265,17 @@ private:
 
             row->channelLabel->setBounds(controls.removeFromLeft(40));
             row->channelInput->setBounds(controls.removeFromLeft(44).reduced(4, 0));
-            row->muteToggle->setBounds(controls.removeFromLeft(88).reduced(4, 0));
-            row->soloToggle->setBounds(controls.removeFromLeft(88).reduced(4, 0));
+            row->muteToggle->setBounds(controls.removeFromLeft(74).reduced(1, 0));
+            row->soloToggle->setBounds(controls.removeFromLeft(74).reduced(1, 0));
+            row->soundLabel->setBounds(controls.removeFromLeft(46));
+            row->soundButton->setBounds(controls.removeFromLeft(224).reduced(1, 0));
+            row->soundHelpButton->setBounds(controls.removeFromLeft(28).reduced(1, 0));
             row->volumeLabel->setBounds(controls.removeFromLeft(72));
-            row->volumeSlider->setBounds(controls.removeFromLeft(200).reduced(4, 0));
+            row->volumeSlider->setBounds(controls.removeFromLeft(180).reduced(4, 0));
             row->expressionLabel->setBounds(controls.removeFromLeft(88));
-            row->expressionSlider->setBounds(controls.removeFromLeft(200).reduced(4, 0));
+            row->expressionSlider->setBounds(controls.removeFromLeft(180).reduced(4, 0));
             row->reverbLabel->setBounds(controls.removeFromLeft(64));
-            row->reverbSlider->setBounds(controls.removeFromLeft(200).reduced(4, 0));
+            row->reverbSlider->setBounds(controls.removeFromLeft(180).reduced(4, 0));
             y += rowHeight + gap;
         }
 
@@ -285,4 +326,5 @@ private:
     std::vector<std::unique_ptr<TrackRow>> rows;
     juce::String trackSignature;
     bool refreshPending = false;
+    std::function<void(int)> openSoundsAction;
 };

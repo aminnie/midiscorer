@@ -89,6 +89,7 @@ target_sources(MidiScorer
         src/app/PresetFileStore.h
         src/app/ScorePdfExporter.h
         src/app/ScoreRebuildService.h
+        src/app/SoundsTabComponent.h
         src/app/TracksTabComponent.h
         src/app/TransportCoordinator.h
         src/app/WorkingDirectoryCopy.h
@@ -108,6 +109,8 @@ target_sources(MidiScorer
         src/playback/TrackMixState.h
         src/playback/TrackMixProcessor.h
         src/playback/TrackMixMidiSeed.h
+        src/sounds/InstrumentCatalog.h
+        src/sounds/TrackSoundProgram.h
 )
 
 target_include_directories(MidiScorer
@@ -160,6 +163,7 @@ target_sources(MidiScorerTests
         src/playback/TrackMixState.h
         src/playback/TrackMixProcessor.h
         src/playback/TrackMixMidiSeed.h
+        src/sounds/TrackSoundProgram.h
 )
 
 target_include_directories(MidiScorerTests

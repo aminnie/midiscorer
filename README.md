@@ -39,20 +39,25 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
 - Playback controls (Score tab):
   - **Start/Stop**, **Continue**, and bar start input
   - optional A-B loop controls for repeating a series of bars during practice
-- Tabbed workspace (tab order: **Start**, **Score**, **Effects**):
+- Tabbed workspace (tab order: **Start**, **Score**, **Sounds**, **Effects**):
   - `Start` tab for MIDI output device selection and optional **Reopen last MIDI on startup** (transport controls are on the Score tab)
   - `Score` tab for notation/chord controls and renderers
-  - `Effects` tab for per-track mix controls
+  - `Sounds` tab for module/category voice browsing and side-panel sound details
+  - `Effects` tab for per-track mix controls and sound selection launch buttons
 - MIDI player and output:
   - MIDI file playback events are scheduled from file time and dispatched on the same transport timeline that drives live score/chord updates
   - single selected MIDI output device (GM-oriented output path)
   - persisted selected output device identifier under `Documents/MidiScorer/midi_output.json`
 - Per-track playback mix:
-  - per eligible MIDI track controls for **Chan** (1..16), **Mute**, **Solo**, **Volume**, **Expression**, and **Reverb** (0..127)
+  - per eligible MIDI track controls for **Chan** (1..16), **Sound**, **Mute**, **Solo**, **Volume**, **Expression**, and **Reverb** (0..127)
   - on load, **Chan** seeds from the track's first non-meta MIDI channel (default **1**); volume/expression/reverb seed from the track's last **CC7** / **CC11** / **CC91** when present; otherwise defaults are **100** / **100** / **10**
+  - on load, sound defaults seed from the track's last **CC0**/**CC32**/**Program Change** values when present
   - saved per-song mix in `ui_preset.json` (`trackMixBySong`) overrides MIDI-seeded values after edit/save
   - grouped controls by track name in the `Effects` tab (AMidiOrgan-style slider colors)
   - **Chan** remaps outgoing playback events (notes, program change, CC, etc.) to the chosen output channel
+  - selecting a sound stores per-track **MSB/LSB/Program + sound name** in the same per-song preset payload
+  - selected sound overrides are proactively sent on **Start**, **Continue**, **Seek**, and loop wrap
+  - incoming MIDI **CC0**/**CC32**/**Program Change** events are replaced with the selected per-track override values during playback
   - note-on velocity is compounded by volume/expression (`volume * expression`), volume scales CC7, expression scales CC11, and reverb merges CC91 during playback
   - use **Chan** changes if you need to reorganize channels in order to play along with the score and MIDI file while playing an instrument that shares the selected MIDI module
 - Per-song score overrides (stored in `Documents/MidiScorer/ui_preset.json`):
@@ -94,11 +99,13 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
 
 - `CMakeLists.txt` - JUCE/CMake project setup
 - `Main.cpp` - JUCE application entry point
-- `src/app/AppTabsHost.h` - top-level tab container (`Start` + `Score` + `Effects`)
+- `src/app/AppTabsHost.h` - top-level tab container (`Start` + `Score` + `Sounds` + `Effects`)
 - `src/app/MainComponent.h` - score page UI controls, notation orchestration, playback sync
 - `src/app/ScorePdfExporter.h` - full-song score pagination/export assembly
 - `src/app/PlayerTabComponent.h` - player page MIDI output selection
-- `src/app/TracksTabComponent.h` - Effects tab (per-track Chan/Mute/Solo/Volume/Expression/Reverb)
+- `src/app/TracksTabComponent.h` - Effects tab (per-track Chan/Sound/Mute/Solo/Volume/Expression/Reverb)
+- `src/app/SoundsTabComponent.h` - Sounds tab (module/category selection and commit back to Effects)
+- `src/sounds/InstrumentCatalog.h` - local module/category/voice catalog loader
 - `src/resources/icons/app-icon-master.png` - application icon source (1024×1024 ARGB; embedded on Windows via CMake)
 - `src/resources/icons/MidiScorer.icns` - macOS bundle icon (generate with `scripts/build-macos-icon.sh`)
 - `src/midi/TempoMap.h` - tempo/time-signature/bar conversion
@@ -114,9 +121,9 @@ MidiScorer is a JUCE/C++ standalone desktop app that reads MIDI files, renders u
 - `src/playback/IPlaybackPositionSource.h` - transport position abstraction boundary
 - `src/playback/MidiFilePlaybackEngineAdapter.h` - scheduled MIDI-event playback adapter
 - `src/playback/MidiOutputDevice.h` - single-output MIDI device abstraction
-- `src/playback/TrackMixState.h` - per-track channel/volume/expression/reverb/mute/solo state
+- `src/playback/TrackMixState.h` - per-track channel/sound/volume/expression/reverb/mute/solo state
 - `src/playback/TrackMixProcessor.h` - playback gating, channel remap, and per-track message scaling/merge
-- `src/playback/TrackMixMidiSeed.h` - seed Chan and mix sliders from track sequences on load
+- `src/playback/TrackMixMidiSeed.h` - seed Chan/sound and mix sliders from track sequences on load
 - `tests/test_main.cpp` - core tests
 - `tests/fixtures/` - fixture specs/documentation
 
@@ -164,8 +171,9 @@ open "build-mac/MidiScorer_artefacts/Debug/MidiScorer.app"
    - live chord marker overlays are excluded from static export
 10. Use **Start** tab to select a MIDI output device.
 11. Use **Score** tab **Start/Stop**, **Continue**, and **Bar** for playback transport.
-12. Use **Effects** tab to adjust per-track **Chan**, Mute, Solo, Volume, Expression, and Reverb.
+12. Use **Effects** tab to adjust per-track **Chan**, **Sound**, Mute, Solo, Volume, Expression, and Reverb.
     - Use **Chan** changes if you need to reorganize channels in order to play along with the score and MIDI file while playing an instrument that shares the selected MIDI module.
+13. Click a track **Sound** button to open **Sounds**, select a module/category/voice, then click **Back to Effects** to save that track override.
 
 ## Notes and known limitations
 
