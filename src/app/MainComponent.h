@@ -119,6 +119,14 @@ public:
         transportToggleButton.setButtonText("Start");
         transportToggleButton.onClick = [this] { onTransportToggleClicked(); };
 
+        addAndMakeVisible(hideScoreControlsButton);
+        hideScoreControlsButton.setTooltip("Hide/Unhide score controls");
+        hideScoreControlsButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff8aa3b6));
+        hideScoreControlsButton.setColour(juce::TextButton::buttonOnColourId,
+                                          juce::Colour(0xff8aa3b6).interpolatedWith(juce::Colours::black, 0.10f));
+        hideScoreControlsButton.setDirection(HideControlArrowButton::Direction::down);
+        hideScoreControlsButton.onClick = [this] { setScoreControlRowsHidden(!scoreControlRowsHidden); };
+
         addAndMakeVisible(accidentalLabel);
         accidentalLabel.setText("Names", juce::dontSendNotification);
         accidentalLabel.setJustificationType(juce::Justification::centredRight);
@@ -379,6 +387,8 @@ public:
         loadSelectedMidiOutputFromConfig();
 
         updateTransportControls();
+        applyScoreControlRowsVisibility();
+        refreshHideScoreControlsButtonText();
         setSize(1280, 720);
         startTimerHz(30);
     }
@@ -406,45 +416,49 @@ public:
         row.removeFromLeft(juce::jmin(4, row.getWidth()));
         exportPdfModeSelector.setBounds(row.removeFromLeft(juce::jmin(72, row.getWidth())).reduced(4, 0));
         openRecentButton.setBounds(row.removeFromLeft(126).reduced(4, 0));
+        hideScoreControlsButton.setBounds(row.removeFromRight(96).reduced(4, 0));
         chordTracksLabel.setBounds(row);
 
-        area.removeFromTop(6);
-        auto selectorRow = area.removeFromTop(26);
-        constexpr int staffSectionWidth = 378;
-        constexpr int staffSectionGap = 6;
-        auto section1 = selectorRow.removeFromLeft(juce::jmin(staffSectionWidth, selectorRow.getWidth()));
-        selectorRow.removeFromLeft(juce::jmin(staffSectionGap, selectorRow.getWidth()));
-        auto section2 = selectorRow.removeFromLeft(juce::jmin(staffSectionWidth, selectorRow.getWidth()));
-        selectorRow.removeFromLeft(juce::jmin(staffSectionGap, selectorRow.getWidth()));
-        auto section3 = selectorRow.removeFromLeft(juce::jmin(staffSectionWidth, selectorRow.getWidth()));
-        layoutStaffControls(section1, staff1TrackLabel, staff1TrackSelector, staff1OctaveSelector, staff1ClefSelector);
-        layoutStaffControls(section2, staff2TrackLabel, staff2TrackSelector, staff2OctaveSelector, staff2ClefSelector);
-        layoutStaffControls(section3, staff3TrackLabel, staff3TrackSelector, staff3OctaveSelector, staff3ClefSelector);
-        constexpr int staff2TrackSelectorShift = 8;
-        constexpr int staff3TrackControlsShift = 10;
-        staff2TrackLabel.setBounds(staff2TrackLabel.getBounds().translated(6, 0));
-        staff2TrackSelector.setBounds(staff2TrackSelector.getBounds().translated(staff2TrackSelectorShift, 0));
-        staff3TrackLabel.setBounds(staff3TrackLabel.getBounds().translated(staff3TrackControlsShift, 0));
-        staff3TrackSelector.setBounds(staff3TrackSelector.getBounds().translated(staff3TrackControlsShift, 0));
+        if (!scoreControlRowsHidden)
+        {
+            area.removeFromTop(6);
+            auto selectorRow = area.removeFromTop(26);
+            constexpr int staffSectionWidth = 378;
+            constexpr int staffSectionGap = 6;
+            auto section1 = selectorRow.removeFromLeft(juce::jmin(staffSectionWidth, selectorRow.getWidth()));
+            selectorRow.removeFromLeft(juce::jmin(staffSectionGap, selectorRow.getWidth()));
+            auto section2 = selectorRow.removeFromLeft(juce::jmin(staffSectionWidth, selectorRow.getWidth()));
+            selectorRow.removeFromLeft(juce::jmin(staffSectionGap, selectorRow.getWidth()));
+            auto section3 = selectorRow.removeFromLeft(juce::jmin(staffSectionWidth, selectorRow.getWidth()));
+            layoutStaffControls(section1, staff1TrackLabel, staff1TrackSelector, staff1OctaveSelector, staff1ClefSelector);
+            layoutStaffControls(section2, staff2TrackLabel, staff2TrackSelector, staff2OctaveSelector, staff2ClefSelector);
+            layoutStaffControls(section3, staff3TrackLabel, staff3TrackSelector, staff3OctaveSelector, staff3ClefSelector);
+            constexpr int staff2TrackSelectorShift = 8;
+            constexpr int staff3TrackControlsShift = 10;
+            staff2TrackLabel.setBounds(staff2TrackLabel.getBounds().translated(6, 0));
+            staff2TrackSelector.setBounds(staff2TrackSelector.getBounds().translated(staff2TrackSelectorShift, 0));
+            staff3TrackLabel.setBounds(staff3TrackLabel.getBounds().translated(staff3TrackControlsShift, 0));
+            staff3TrackSelector.setBounds(staff3TrackSelector.getBounds().translated(staff3TrackControlsShift, 0));
 
-        area.removeFromTop(6);
-        auto chordTracksArea = area.removeFromTop(getChordTracksLayoutHeight(area.getWidth()));
-        layoutChordTrackButtons(chordTracksArea);
+            area.removeFromTop(6);
+            auto chordTracksArea = area.removeFromTop(getChordTracksLayoutHeight(area.getWidth()));
+            layoutChordTrackButtons(chordTracksArea);
 
-        area.removeFromTop(6);
-        auto statusRow = area.removeFromTop(24);
-        tempoOverrideLabel.setBounds(statusRow.removeFromLeft(50));
-        tempoOverrideInput.setBounds(statusRow.removeFromLeft(72).reduced(4, 0));
-        tempoHelpButton.setBounds(statusRow.removeFromLeft(28).reduced(4, 0));
-        assignLabel.setBounds(statusRow.removeFromLeft(48));
-        assignToggle.setBounds(statusRow.removeFromLeft(30).reduced(4, 0));
-        keyOverrideLabel.setBounds(statusRow.removeFromLeft(36));
-        keyOverrideInput.setBounds(statusRow.removeFromLeft(68).reduced(4, 0));
-        keyHelpButton.setBounds(statusRow.removeFromLeft(28).reduced(4, 0));
-        globalTransposeLabel.setBounds(statusRow.removeFromLeft(74));
-        globalTransposeInput.setBounds(statusRow.removeFromLeft(48).reduced(4, 0));
-        transposeHelpButton.setBounds(statusRow.removeFromLeft(28).reduced(4, 0));
-        statusLabel.setBounds(statusRow);
+            area.removeFromTop(6);
+            auto statusRow = area.removeFromTop(24);
+            tempoOverrideLabel.setBounds(statusRow.removeFromLeft(50));
+            tempoOverrideInput.setBounds(statusRow.removeFromLeft(72).reduced(4, 0));
+            tempoHelpButton.setBounds(statusRow.removeFromLeft(28).reduced(4, 0));
+            assignLabel.setBounds(statusRow.removeFromLeft(48));
+            assignToggle.setBounds(statusRow.removeFromLeft(30).reduced(4, 0));
+            keyOverrideLabel.setBounds(statusRow.removeFromLeft(36));
+            keyOverrideInput.setBounds(statusRow.removeFromLeft(68).reduced(4, 0));
+            keyHelpButton.setBounds(statusRow.removeFromLeft(28).reduced(4, 0));
+            globalTransposeLabel.setBounds(statusRow.removeFromLeft(74));
+            globalTransposeInput.setBounds(statusRow.removeFromLeft(48).reduced(4, 0));
+            transposeHelpButton.setBounds(statusRow.removeFromLeft(28).reduced(4, 0));
+            statusLabel.setBounds(statusRow);
+        }
         area.removeFromTop(8);
         const bool showStaff1 = isStaffDisplayed(staff1TrackSelector);
         const bool showStaff2 = isStaffDisplayed(staff2TrackSelector);
@@ -854,6 +868,87 @@ public:
     }
 
 private:
+    class HideControlArrowButton final : public juce::TextButton
+    {
+    public:
+        enum class Direction
+        {
+            up,
+            down
+        };
+
+        HideControlArrowButton()
+        {
+            setButtonText({});
+            setClickingTogglesState(false);
+        }
+
+        void setDirection(Direction newDirection)
+        {
+            direction = newDirection;
+            repaint();
+        }
+
+        void paintButton(juce::Graphics& g, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override
+        {
+            auto bounds = getLocalBounds().toFloat().reduced(0.5f);
+            const bool isEnabledNow = isEnabled();
+            const bool isPressed = shouldDrawButtonAsDown;
+            const auto background = isPressed ? findColour(juce::TextButton::buttonOnColourId)
+                                              : findColour(juce::TextButton::buttonColourId);
+            const float corner = 4.4f;
+
+            const auto borderColour = isPressed ? juce::Colours::black.withAlpha(0.70f)
+                                                : juce::Colours::black.withAlpha(0.55f);
+            const auto highlightColour = isPressed ? juce::Colours::white.withAlpha(0.04f)
+                                                   : juce::Colours::white.withAlpha(0.10f);
+
+            g.setColour(isEnabledNow ? background : background.withAlpha(0.80f));
+            g.fillRoundedRectangle(bounds, corner);
+
+            auto topHalf = bounds;
+            topHalf.setHeight(bounds.getHeight() * 0.45f);
+            g.setColour(highlightColour);
+            g.fillRoundedRectangle(topHalf, corner);
+
+            if (isEnabledNow && shouldDrawButtonAsHighlighted && !isPressed)
+            {
+                g.setColour(juce::Colours::white.withAlpha(0.08f));
+                g.fillRoundedRectangle(bounds, corner);
+            }
+
+            g.setColour(borderColour);
+            g.drawRoundedRectangle(bounds, corner, 1.1f);
+
+            const float verticalNudge = isPressed ? 0.8f : 0.0f;
+            const float cx = bounds.getCentreX();
+            const float cy = bounds.getCentreY() + verticalNudge;
+            const float halfWidth = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.23f;
+            const float halfHeight = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.20f;
+
+            juce::Path arrowPath;
+            if (direction == Direction::up)
+            {
+                arrowPath.startNewSubPath(cx - halfWidth, cy + halfHeight);
+                arrowPath.lineTo(cx, cy - halfHeight);
+                arrowPath.lineTo(cx + halfWidth, cy + halfHeight);
+            }
+            else
+            {
+                arrowPath.startNewSubPath(cx - halfWidth, cy - halfHeight);
+                arrowPath.lineTo(cx, cy + halfHeight);
+                arrowPath.lineTo(cx + halfWidth, cy - halfHeight);
+            }
+
+            const auto arrowColour = isEnabledNow ? juce::Colours::white : juce::Colours::lightgrey.withAlpha(0.55f);
+            g.setColour(arrowColour);
+            g.strokePath(arrowPath, juce::PathStrokeType(4.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        }
+
+    private:
+        Direction direction = Direction::down;
+    };
+
     struct LiveChordState
     {
         int lastWindowIndex = std::numeric_limits<int>::min();
@@ -1281,6 +1376,78 @@ private:
         clefSelector.setBounds(area.removeFromRight(82));
     }
 
+    void refreshHideScoreControlsButtonText()
+    {
+        hideScoreControlsButton.setDirection(scoreControlRowsHidden
+                                                 ? HideControlArrowButton::Direction::down
+                                                 : HideControlArrowButton::Direction::up);
+    }
+
+    void applyScoreControlRowsVisibility()
+    {
+        const bool visible = !scoreControlRowsHidden;
+        auto setVisible = [visible](juce::Component& component)
+        {
+            component.setVisible(visible);
+            component.setEnabled(visible);
+        };
+
+        // Staff selector row.
+        setVisible(staff1TrackLabel);
+        setVisible(staff1TrackSelector);
+        setVisible(staff1OctaveSelector);
+        setVisible(staff1ClefSelector);
+        setVisible(staff2TrackLabel);
+        setVisible(staff2TrackSelector);
+        setVisible(staff2OctaveSelector);
+        setVisible(staff2ClefSelector);
+        setVisible(staff3TrackLabel);
+        setVisible(staff3TrackSelector);
+        setVisible(staff3OctaveSelector);
+        setVisible(staff3ClefSelector);
+
+        // Chord controls row.
+        setVisible(autoChordLabel);
+        setVisible(chordComplexityLabel);
+        setVisible(chordComplexitySelector);
+        setVisible(chordResolutionLabel);
+        setVisible(chordResolutionSelector);
+        setVisible(accidentalLabel);
+        setVisible(accidentalSelector);
+        setVisible(accidentalHelpButton);
+        setVisible(aliasLabel);
+        setVisible(aliasSelector);
+        setVisible(chordTracksLabel);
+        for (auto* button : chordTrackButtons)
+            if (button != nullptr)
+                setVisible(*button);
+
+        // Tempo/status row.
+        setVisible(tempoOverrideLabel);
+        setVisible(tempoOverrideInput);
+        setVisible(tempoHelpButton);
+        setVisible(assignLabel);
+        setVisible(assignToggle);
+        setVisible(keyOverrideLabel);
+        setVisible(keyOverrideInput);
+        setVisible(keyHelpButton);
+        setVisible(globalTransposeLabel);
+        setVisible(globalTransposeInput);
+        setVisible(transposeHelpButton);
+        setVisible(statusLabel);
+    }
+
+    void setScoreControlRowsHidden(bool hidden)
+    {
+        if (scoreControlRowsHidden == hidden)
+            return;
+
+        scoreControlRowsHidden = hidden;
+        applyScoreControlRowsVisibility();
+        refreshHideScoreControlsButtonText();
+        resized();
+    }
+
     static bool isStaffDisplayed(const juce::ComboBox& trackSelector)
     {
         // Selector index 0 is "No Display".
@@ -1578,6 +1745,8 @@ private:
             addAndMakeVisible(button);
             ++visibleCount;
         }
+
+        applyScoreControlRowsVisibility();
 
         // Buttons are created dynamically after MIDI load; force an immediate relayout
         // so they appear without requiring the user to manually resize the window.
@@ -3356,11 +3525,15 @@ private:
     void startPlayback()
     {
         TransportCoordinator::startPlayback(buildTransportContext());
+        if (playbackController.isPlaying())
+            setScoreControlRowsHidden(true);
     }
 
     void continuePlaybackFromBar()
     {
         TransportCoordinator::continuePlaybackFromBar(buildTransportContext());
+        if (playbackController.isPlaying())
+            setScoreControlRowsHidden(true);
     }
 
     void stopPlayback(bool userInitiated)
@@ -3475,6 +3648,7 @@ private:
     StaffDisplayOctaveSelector staff3OctaveSelector;
     juce::ComboBox staff3ClefSelector;
     juce::TextButton transportToggleButton;
+    HideControlArrowButton hideScoreControlsButton;
     juce::Label accidentalLabel;
     juce::ComboBox accidentalSelector;
     juce::TextButton accidentalHelpButton;
@@ -3538,6 +3712,7 @@ private:
     std::vector<juce::String> recentMidiFiles;
     bool startupResumeEnabled = false;
     bool scoreLightMode = true;
+    bool scoreControlRowsHidden = false;
     juce::String midiOutputRestoreWarning;
     bool continueArmed = false;
     bool loopEnabled = false;
